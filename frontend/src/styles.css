@@ -1,0 +1,150 @@
+:root {
+  color-scheme: light;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #172033;
+  background:
+    radial-gradient(circle at top, rgba(95, 155, 255, 0.2), transparent 35%),
+    linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.page-shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 48px 20px 80px;
+}
+
+.hero {
+  margin-bottom: 32px;
+}
+
+.hero__kicker {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.75rem;
+  color: #476091;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+}
+
+.hero__lede {
+  max-width: 48rem;
+  color: #4d5f83;
+}
+
+.status-panel {
+  padding: 20px 24px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  box-shadow: 0 20px 60px rgba(88, 113, 173, 0.12);
+}
+
+.status-panel--error {
+  color: #8d2230;
+  border-color: rgba(141, 34, 48, 0.18);
+  background: rgba(255, 240, 243, 0.9);
+}
+
+.ticket-list {
+  display: grid;
+  gap: 18px;
+}
+
+.ticket-card {
+  padding: 24px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  box-shadow: 0 24px 60px rgba(88, 113, 173, 0.14);
+}
+
+.ticket-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ticket-card__header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.ticket-card__eyebrow {
+  margin: 0 0 6px;
+  color: #476091;
+  font-size: 0.9rem;
+}
+
+.ticket-card__preview {
+  margin: 16px 0;
+  color: #3e4f70;
+}
+
+.ticket-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  color: #5c6f96;
+  font-size: 0.92rem;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  text-transform: capitalize;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.pill--low {
+  background: #e6f4ea;
+  color: #1f6c3d;
+}
+
+.pill--medium {
+  background: #fff4da;
+  color: #886300;
+}
+
+.pill--high {
+  background: #ffe7d6;
+  color: #9e4b00;
+}
+
+.pill--urgent {
+  background: #ffe1e6;
+  color: #a61b38;
+}
+
+@media (max-width: 640px) {
+  .page-shell {
+    padding-top: 32px;
+  }
+
+  .ticket-card__header {
+    flex-direction: column;
+  }
+}

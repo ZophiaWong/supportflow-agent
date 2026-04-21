@@ -1,0 +1,29 @@
+[
+  {
+    "id": "ticket-1001",
+    "subject": "Refund requested for duplicate charge",
+    "customer_name": "Avery Chen",
+    "status": "open",
+    "priority": "high",
+    "created_at": "2026-04-16T09:30:00Z",
+    "preview": "I was charged twice for the April invoice and need a refund."
+  },
+  {
+    "id": "ticket-1002",
+    "subject": "Unable to reset administrator password",
+    "customer_name": "Jordan Patel",
+    "status": "pending",
+    "priority": "urgent",
+    "created_at": "2026-04-16T10:05:00Z",
+    "preview": "Our team is locked out of the admin dashboard after a password reset."
+  },
+  {
+    "id": "ticket-1003",
+    "subject": "Question about annual plan seat limits",
+    "customer_name": "Morgan Rivera",
+    "status": "resolved",
+    "priority": "medium",
+    "created_at": "2026-04-16T11:20:00Z",
+    "preview": "Can we temporarily exceed our annual plan seats during onboarding?"
+  }
+]

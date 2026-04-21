@@ -1,0 +1,12 @@
+# Backend: FastAPI app, graph code, and Python tests
+backend/.venv/
+backend/.pytest_cache/
+backend/**/__pycache__/
+
+# Frontend: React app build and dependency output
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+
+# Local environment files
+.env
