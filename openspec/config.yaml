@@ -1,0 +1,71 @@
+schema: spec-driven
+
+context: |
+  Project: supportflow-agent
+  Goal: Build a workflow-first AI support app for ticket triage and response drafting.
+
+  Architecture:
+  - React frontend
+  - FastAPI backend
+  - LangGraph workflow
+  - Local knowledge base
+  - Later, not for MVP: LangSmith tracing
+
+  Frontend responsibilities:
+  - Ticket list
+  - Ticket detail
+  - Review UI
+
+  Backend responsibilities:
+  - Ticket APIs
+  - Graph execution
+  - Retrieval service
+  - Review resume endpoint
+
+  Graph responsibilities:
+  - classify
+  - retrieve
+  - draft
+  - risk gate
+  - interrupt/resume
+  - finalize
+
+  MVP scope:
+  - Ticket list
+  - Ticket processing workflow
+  - Knowledge retrieval
+  - Draft generation
+  - Human review interruption
+  - Final response display
+
+  Non-goals for MVP:
+  - Multi-agent patterns
+  - Long-term memory
+  - External write-back
+  - Auth / multi-tenant
+  - Real email integration
+  - Real ticketing systems
+  - Production-grade analytics
+
+  Working rules:
+  - Prefer minimal viable implementations over broad abstractions.
+  - Keep LangGraph workflow-first.
+  - Use Pydantic schemas for API and structured LLM outputs.
+  - Update the active ExecPlan when design decisions change.
+
+rules:
+  proposal:
+    - Keep proposals aligned to the React + FastAPI + LangGraph architecture.
+    - Prefer minimal viable implementations over broad abstractions.
+    - Explicitly call out workflow impact when changing graph state or routing.
+    - Include a Non-goals section for anything beyond MVP scope.
+    - Do not introduce multi-agent patterns.
+  design:
+    - Keep the system workflow-first, with LangGraph as the core orchestration layer.
+    - Separate responsibilities clearly across frontend, backend, and graph layers.
+    - Use Pydantic schemas for API contracts and structured LLM outputs.
+    - Note any required ExecPlan updates when design decisions change.
+  tasks:
+    - Break work into concrete vertical slices that map to frontend, backend, or graph changes.
+    - Include ExecPlan updates for multi-file features, backend/frontend refactors, graph routing changes, or evaluation/observability work.
+    - Keep tasks focused on MVP scope unless the change explicitly expands scope.
