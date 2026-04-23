@@ -1,727 +1,345 @@
-# Day2 Graph Happy Path
+# Deliver the Day 2 LangGraph Happy Path
 
-This ExecPlan is a living document. Keep `Progress`, `Decision Log`, `Surprises & Discoveries`, and `Outcomes & Retrospective` updated as work advances.
+This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.
+
+This repository includes `docs/PLANS.md`. Maintain this document according to that file, especially the requirements that every ExecPlan be self-contained, written in plain English, and focused on observable working behavior.
 
 ## Purpose / Big Picture
 
-Day2 的目标不是把项目做“更复杂”，而是让它**第一次真正像一个 LangGraph 项目**。
+After this change, supportflow-agent will stop being only a ticket list and static UI shell. A user will be able to select a demo support ticket, run one synchronous LangGraph workflow, and see the workflow output in the ticket detail area: a classification, retrieved knowledge-base evidence, and a draft reply.
 
-今天只证明一条最小同步 happy path：
+This matters because the product goal is a workflow-first AI support app. The Day 2 work proves the smallest useful workflow loop: load a ticket, classify it, retrieve relevant local knowledge, draft a reply, return a structured FastAPI response, and render that response in React. Model quality is intentionally out of scope; deterministic rules and templates are acceptable because the purpose is to validate orchestration, contracts, and UI integration.
 
-**选择工单 -> `load_ticket_context` -> `classify_ticket` -> `retrieve_knowledge` -> `draft_reply` -> FastAPI 返回结构化结果 -> 前端详情页展示分类、证据和草稿**
+## Progress
 
-这一天的重点是：
+- [x] (2026-04-23 15:20 HKT) Rewrote this ExecPlan as a pure-English, PLANS.md-shaped living document while preserving the Day 2 happy-path scope.
+- [ ] Align demo knowledge-base documents so each major demo ticket category has searchable English content.
+- [ ] Add backend service boundaries for ticket loading and local knowledge retrieval.
+- [ ] Add graph state, structured graph schemas, four graph nodes, and the synchronous graph builder.
+- [ ] Add the run-ticket API endpoint and route it through FastAPI.
+- [ ] Add frontend types, API client support, ticket detail display, workflow result display, and page wiring.
+- [ ] Add and run at least one backend smoke test proving the graph/API happy path.
+- [ ] Run frontend checks or tests proving the selected ticket and workflow result UI still render.
 
-- 把 graph 的 `state / nodes / edges / compile / invoke` 跑通
-- 把前后端联动从“静态壳子”推进到“工作流结果页”
-- 把“模型效果问题”和“系统编排问题”分开
-- 为 Day3 的 `risk_gate + human_review_interrupt` 打好状态和调用基础
+## Surprises & Discoveries
 
-## Why Today Matters
+- Observation: The original active plan mixed English and Chinese and did not include several mandatory sections from `docs/PLANS.md`.
+  Evidence: The document had sections for scope, state design, and API sketches, but it lacked `Context and Orientation`, `Plan of Work`, `Concrete Steps`, `Validation and Acceptance`, `Idempotence and Recovery`, `Artifacts and Notes`, and `Interfaces and Dependencies`.
 
-Day1 解决的是项目壳子、接口边界、repo 组织方式。  
-Day2 解决的是：**这个项目到底是不是 LangGraph workflow 项目**。
+- Observation: The current repository already has a minimal backend, frontend, ticket data, and one knowledge-base document, so Day 2 should extend the existing shape rather than replace it.
+  Evidence: Existing files include `backend/app/main.py`, `backend/app/api/v1/tickets.py`, `backend/app/schemas/ticket.py`, `backend/app/graph/state.py`, `frontend/src/pages/TicketsPage.tsx`, `frontend/src/components/TicketList.tsx`, `frontend/src/lib/api.ts`, `frontend/src/lib/types.ts`, `data/sample_tickets/demo_tickets.json`, and `data/kb/refund_policy.md`.
 
-如果 Day2 跑通，你就不再只是有一个：
+## Decision Log
 
-- FastAPI 壳子
-- React 页面
-- mock 数据列表
+- Decision: Keep Day 2 to a fixed synchronous graph path with deterministic classification, lexical retrieval, and template drafting.
+  Rationale: The goal is to prove workflow orchestration and API/UI contracts before introducing LLM calls, conditional routing, streaming, human review, or tracing.
+  Date/Author: 2026-04-23 / Codex
 
-你会有一个真正的 workflow 执行闭环：
+- Decision: Put ticket file access behind `backend/app/services/ticket_repo.py` and knowledge-base scanning behind `backend/app/services/retrieval.py`.
+  Rationale: FastAPI routes and graph nodes should depend on small service functions, not on JSON or Markdown file paths. This keeps later replacement with a database, vector store, or external ticket system local to service modules.
+  Date/Author: 2026-04-23 / Codex
 
-- 结构化 state
-- 明确 node 职责
-- graph compile / invoke
-- 结构化 API 输出
-- 前端展示中间产物
+- Decision: Store structured intermediate values in graph state rather than collapsing the ticket, classification, evidence, and draft into one prompt string.
+  Rationale: Structured state is easier to debug, easier to expose through an API, and prepares the repository for Day 3 risk gating and human review resume behavior.
+  Date/Author: 2026-04-23 / Codex
 
-## Scope
+- Decision: Use `thread_id = "ticket-{ticket_id}"` for the Day 2 run endpoint.
+  Rationale: LangGraph checkpointers identify runs by a configurable thread identifier. A deterministic ticket-based thread id is simple, stable for smoke tests, and can be replaced later if the product needs multiple runs per ticket.
+  Date/Author: 2026-04-23 / Codex
 
-### In Scope
+## Outcomes & Retrospective
 
-- 统一 demo 数据语言，保证中文工单能命中 KB
-- 新建 Day2 active ExecPlan
-- 增加 `ticket_repo` 和 `retrieval` 两个 service
-- 定义 graph 共享状态与节点输出 schema
-- 实现 4 个 LangGraph 节点：
-  - `load_ticket_context`
-  - `classify_ticket`
-  - `retrieve_knowledge`
-  - `draft_reply`
-- 编译同步 graph
-- 新增 `POST /api/v1/tickets/{ticket_id}/run`
-- 前端详情区展示：
-  - ticket detail
-  - classification
-  - retrieved chunks
-  - draft reply
-- 增加 1 个最小 smoke test
+No implementation outcome has been recorded yet. When the backend graph, API, frontend panel, and smoke tests are complete, update this section with what works, what remains intentionally deferred to Day 3, and any lessons learned while integrating LangGraph with FastAPI and React.
 
-### Out of Scope
+## Context and Orientation
 
-今天坚决不做：
+supportflow-agent is an AI support workflow app for ticket triage and response drafting. The repository is intentionally small. The backend is a FastAPI application in `backend/app`. FastAPI is a Python web framework that maps HTTP requests to Python functions. The frontend is a React application in `frontend/src`. React renders the browser UI. LangGraph is the workflow library used by the backend to run a graph, which in this plan means a fixed sequence of named Python functions called nodes. Each node reads and returns part of a shared state dictionary.
 
-- conditional routing
-- `risk_gate`
-- interrupt / resume
-- review queue 联动
-- SSE / streaming
-- LangSmith tracing
-- 数据库 / ORM / migration
-- 向量库 / embedding / reranker
-- LLM 实现（先用 deterministic stub）
-- Docker
-- 真实工单系统集成
+The existing backend entrypoint is `backend/app/main.py`. Existing route modules live under `backend/app/api/v1`. Existing Pydantic API schemas live under `backend/app/schemas`. Pydantic models validate Python data and FastAPI responses. Existing graph code starts at `backend/app/graph/state.py`, but Day 2 needs a fuller state type, node modules, and a graph builder. The demo tickets are stored in `data/sample_tickets/demo_tickets.json`. Local knowledge-base Markdown files live in `data/kb`.
 
-## Success Criteria
+The existing frontend ticket page is `frontend/src/pages/TicketsPage.tsx`. Shared frontend API functions live in `frontend/src/lib/api.ts`, and shared TypeScript types live in `frontend/src/lib/types.ts`. The current list component is `frontend/src/components/TicketList.tsx`. Day 2 should add a ticket detail component and a workflow result panel, then wire them into the ticket page.
 
-今天结束前，必须满足以下 6 条：
+The Day 2 happy path is:
 
-1. demo KB 已统一成中文或双语
-2. graph 的 4 个节点已写完并能成功 `invoke`
-3. `POST /api/v1/tickets/{ticket_id}/run` 能返回结构化结果
-4. 前端能选中 ticket 并显示 workflow 结果
-5. 至少 1 个 smoke test 通过
-6. 本文档的 `Progress / Decision Log` 已更新
+    User selects ticket
+    -> frontend calls POST /api/v1/tickets/{ticket_id}/run
+    -> FastAPI invokes LangGraph
+    -> load_ticket_context reads the ticket
+    -> classify_ticket assigns category and priority
+    -> retrieve_knowledge finds local KB snippets
+    -> draft_reply creates a draft answer with citations
+    -> FastAPI returns a structured response
+    -> frontend displays classification, retrieved chunks, and draft
 
-## Guardrails
+The following terms are used in this plan. A ticket is a support request from `data/sample_tickets/demo_tickets.json`. A knowledge-base document is a Markdown file in `data/kb` that contains support guidance. A graph node is a Python function that receives graph state and returns a partial state update. A checkpointer is LangGraph storage for graph run state; for Day 2 use an in-memory checkpointer because the run is synchronous and local. A smoke test is a small test that proves the main path works end-to-end enough to catch wiring failures.
 
-为了避免 Day2 失控，必须遵守下面这些限制：
+## Plan of Work
 
-- **先稳边界，再换实现**
-  - `classify_ticket` 先规则分类
-  - `draft_reply` 先模板草稿
-  - 但 contract 必须已经定成结构化 schema
-- **API 层不直接读 JSON**
-  - ticket 读取放到 `ticket_repo.py`
-- **node 不直接扫目录**
-  - 检索逻辑放到 `retrieval.py`
-- **graph state 存原始结构**
-  - 不要只存一个大字符串 prompt
-- **今天只跑同步 happy path**
-  - 先验证 orchestration
-- **今天可以接 checkpointer，但不做人审**
-  - 为 Day3 留好基础，不提前引入额外变量
+First, align the demo data and knowledge base. Keep `data/kb/refund_policy.md`, and add `data/kb/account_unlock.md` and `data/kb/bug_export_issue.md`. The knowledge-base text should be in English and should contain terms that overlap with the demo tickets. If a demo ticket is still Chinese, either make the KB bilingual or include enough English keywords in the retrieval query construction to make the match reliable. At the end of this step, billing/refund, account access, and bug/export cases should each have at least one relevant local document.
+
+Second, add backend service boundaries. Create `backend/app/services/ticket_repo.py` with functions that read `data/sample_tickets/demo_tickets.json`, return all tickets, and return one ticket by id. Create `backend/app/services/retrieval.py` with a simple lexical retriever that reads Markdown files from `data/kb`, scores documents by keyword overlap, and returns the top matches as structured hits. The route layer must not open JSON files directly, and graph nodes must not walk the KB directory directly.
+
+Third, add structured graph contracts. Create `backend/app/schemas/graph.py` with Pydantic models for `TicketClassification`, `KBHit`, `DraftReply`, and `RunTicketResponse`. Update `backend/app/graph/state.py` so `TicketState` is a `TypedDict` containing the ticket id, optional thread id, raw ticket object, classification, retrieval query, retrieved chunks, draft, status, current node, and optional error. Keep the state explicit and inspectable; do not replace it with a single prompt string.
+
+Fourth, implement the four graph nodes. Create `backend/app/graph/nodes/load_ticket_context.py`, `classify_ticket.py`, `retrieve_knowledge.py`, and `draft_reply.py`. `load_ticket_context` reads the ticket through `ticket_repo` and marks the run as running. `classify_ticket` uses deterministic keyword rules. `retrieve_knowledge` builds a query from the ticket and classification and delegates to `retrieval.py`. `draft_reply` uses a template and the retrieved hits to create a safe draft; if no hits exist, it should lower confidence and avoid inventing citations.
+
+Fifth, compile the graph. Create `backend/app/graph/builder.py` with a cached `get_support_graph()` function. The graph shape is fixed for Day 2: `START` to `load_ticket_context`, then `classify_ticket`, then `retrieve_knowledge`, then `draft_reply`, then `END`. Use `StateGraph(TicketState)` and compile with `InMemorySaver`. Do not add conditional routing, review interrupts, streaming, or multi-agent behavior in this plan.
+
+Sixth, expose the run endpoint. Create `backend/app/api/v1/runs.py` with `POST /tickets/{ticket_id}/run`, returning `RunTicketResponse`. The route should construct `thread_id`, invoke the graph with `{"ticket_id": ticket_id}`, pass `{"configurable": {"thread_id": thread_id}}`, translate a missing ticket into HTTP 404, and let unexpected errors surface as HTTP 500 with a clear message. Register the router in `backend/app/main.py`.
+
+Seventh, update the frontend. Extend `frontend/src/lib/types.ts` with types matching the backend response. Extend `frontend/src/lib/api.ts` with a `runTicket(ticketId: string)` function. Add `frontend/src/components/TicketDetail.tsx` for selected ticket fields and `frontend/src/components/WorkflowResultPanel.tsx` for classification, evidence, and draft. Update `frontend/src/pages/TicketsPage.tsx` so selecting a ticket shows details and clicking a "Run workflow" button calls the API and renders the result. Keep the UI minimal but clear.
+
+Eighth, add tests and validation. Add `backend/tests/integration/test_graph_smoke.py` or a similarly named backend test that invokes the run endpoint for a known demo ticket and asserts `status == "done"`, a non-empty classification, at least one retrieved chunk when the ticket has matching KB content, and a draft answer. Update or add frontend tests only as needed to cover the new selected-ticket and workflow-result UI without overbuilding.
 
 ## Milestones
 
-## Milestone 1: Data Alignment
+Milestone 1 proves data alignment. At the end of this milestone, local knowledge-base documents exist for the major demo categories and the retriever has content it can match. Validate by inspecting `data/kb` and confirming that each document has a clear title, support guidance, and words that overlap with the target tickets.
 
-### Goal
+Milestone 2 proves backend boundaries. At the end of this milestone, ticket loading and knowledge retrieval are implemented as service modules. Validate by running backend tests that import the service functions or by adding a small smoke test around `get_ticket_by_id` and retrieval. A novice should be able to tell that API routes no longer need to know where the JSON and Markdown files are stored.
 
-让中文工单能检索到有效 KB。
+Milestone 3 proves the graph. At the end of this milestone, `get_support_graph().invoke({"ticket_id": "T-1001"}, config={"configurable": {"thread_id": "ticket-T-1001"}})` returns a state containing `status`, `classification`, `retrieved_chunks`, and `draft`. This milestone is complete only when the graph itself works without the frontend.
 
-### Tasks
+Milestone 4 proves the API. At the end of this milestone, `POST /api/v1/tickets/T-1001/run` returns HTTP 200 and a structured JSON body, while an unknown ticket id returns HTTP 404. This milestone is complete when the behavior is visible through FastAPI tests or a local HTTP request.
 
-- 更新 `refund_policy.md`
-- 新增 `account_unlock.md`
-- 新增 `bug_export_issue.md`
+Milestone 5 proves the product slice. At the end of this milestone, the frontend can show ticket details, run the workflow for the selected ticket, and display the classification, KB hits, and draft reply. This milestone is complete when the browser UI or frontend tests demonstrate the full interaction.
 
-### Acceptance
+## Concrete Steps
 
-- 中文 ticket 与中文 KB 主题一致
-- 至少每种主要类别对应 1 份 KB 文档
+Work from the repository root:
 
-## Milestone 2: Service Boundary
+    cd /home/poter/resume-pj/supportflow-agent
 
-### Goal
+Inspect the current backend and frontend before editing:
 
-把数据访问和 graph orchestration 分开。
+    sed -n '1,220p' backend/app/main.py
+    sed -n '1,220p' backend/app/api/v1/tickets.py
+    sed -n '1,220p' backend/app/schemas/ticket.py
+    sed -n '1,260p' frontend/src/pages/TicketsPage.tsx
+    sed -n '1,220p' frontend/src/lib/api.ts
+    sed -n '1,220p' frontend/src/lib/types.ts
 
-### Tasks
+Implement the files in this order so each layer can be validated before the next layer depends on it:
 
-- 新建 `services/ticket_repo.py`
-- 新建 `services/retrieval.py`
-
-### Acceptance
-
-- API 不直接读 JSON 文件
-- node 不直接遍历 `data/kb/`
-
-## Milestone 3: Graph Happy Path
-
-### Goal
-
-实现最小同步 graph。
-
-### Tasks
-
-- 更新 `graph/state.py`
-- 新建 `schemas/graph.py`
-- 实现 4 个 node
-- 新建 `graph/builder.py`
-
-### Acceptance
-
-- `graph.invoke({"ticket_id": "T-1001"}, config=...)` 能返回完整结果
-- 返回结果包含：
-  - `classification`
-  - `retrieved_chunks`
-  - `draft`
-
-## Milestone 4: Run API
-
-### Goal
-
-让后端可以按 ticket 触发 workflow。
-
-### Tasks
-
-- 新建 `api/v1/runs.py`
-- 在 `main.py` 挂载 router
-
-### Acceptance
-
-- `POST /api/v1/tickets/{ticket_id}/run` 可用
-- 非法 ticket 返回 404
-- 正常调用返回结构化 payload
-
-## Milestone 5: Frontend Workflow Result Panel
-
-### Goal
-
-前端可以从“列表页”进入“执行结果页”。
-
-### Tasks
-
-- 扩展 `types.ts`
-- 扩展 `api.ts`
-- 新建 `TicketDetail.tsx`
-- 新建 `WorkflowResultPanel.tsx`
-- 更新 `TicketsPage.tsx`
-
-### Acceptance
-
-- 点击左侧 ticket 后，右侧显示 detail
-- 点击“Run workflow”按钮后，右侧显示分类、证据和草稿
-
-## File Plan
-
-按下面顺序推进，避免乱序：
-
-1. `docs/exec-plans/active/2026-04-21-day2-graph-happy-path.md`
-2. `data/kb/refund_policy.md`
-3. `data/kb/account_unlock.md`
-4. `data/kb/bug_export_issue.md`
+1. `data/kb/refund_policy.md`
+2. `data/kb/account_unlock.md`
+3. `data/kb/bug_export_issue.md`
+4. `backend/app/services/__init__.py`
 5. `backend/app/services/ticket_repo.py`
 6. `backend/app/services/retrieval.py`
 7. `backend/app/schemas/graph.py`
 8. `backend/app/graph/state.py`
-9. `backend/app/graph/nodes/load_ticket_context.py`
-10. `backend/app/graph/nodes/classify_ticket.py`
-11. `backend/app/graph/nodes/retrieve_knowledge.py`
-12. `backend/app/graph/nodes/draft_reply.py`
-13. `backend/app/graph/builder.py`
-14. `backend/app/api/v1/runs.py`
-15. `backend/app/main.py`
-16. `frontend/src/lib/types.ts`
-17. `frontend/src/lib/api.ts`
-18. `frontend/src/components/TicketDetail.tsx`
-19. `frontend/src/components/WorkflowResultPanel.tsx`
-20. `frontend/src/pages/TicketsPage.tsx`
-21. `backend/tests/integration/test_graph_smoke.py`
-
-## State Design
-
-第一版 graph state 先保持轻量、清晰、可调试：
-
-```python
-from typing import Any, Literal, TypedDict
-from app.schemas.graph import TicketClassification, KBHit, DraftReply
-
-class TicketState(TypedDict, total=False):
-    thread_id: str
-    ticket_id: str
-    ticket: dict[str, Any]
-
-    classification: TicketClassification
-    retrieval_query: str
-    retrieved_chunks: list[KBHit]
-    draft: DraftReply
-
-    status: Literal["queued", "running", "done", "failed"]
-    current_node: Literal[
-        "load_ticket_context",
-        "classify_ticket",
-        "retrieve_knowledge",
-        "draft_reply",
-    ]
-    error: str | None
-```
-
-### Design Notes
-
-- `ticket`：原始业务数据，不要在 state 里只存 prompt 文本
-- `classification / retrieved_chunks / draft`：中间结构化产物
-- `current_node`：给 debug 和后续 timeline 使用
-- `thread_id`：今天先立起来，Day3 的 interrupt / resume 直接复用
-- `status`：只保留运行状态，不混入 review 状态
-
-## Contract Design
-
-```python
-from typing import Literal
-from pydantic import BaseModel
-
-class TicketClassification(BaseModel):
-    category: Literal["billing", "account", "product", "bug", "other"]
-    priority: Literal["P0", "P1", "P2", "P3"]
-    reason: str
-
-class KBHit(BaseModel):
-    doc_id: str
-    title: str
-    score: float
-    snippet: str
-
-class DraftReply(BaseModel):
-    answer: str
-    citations: list[str]
-    confidence: float
-
-class RunTicketResponse(BaseModel):
-    thread_id: str
-    ticket_id: str
-    status: Literal["done", "failed", "running"]
-    classification: TicketClassification
-    retrieved_chunks: list[KBHit]
-    draft: DraftReply
-```
-
-### Why This Contract Matters
-
-- graph state 轻量，便于 orchestration
-- node output contract 明确，便于替换实现
-- FastAPI `response_model` 能做输出过滤和校验
-- Day3 以后即使把规则分类换成 LLM，也不需要改 API 边界
-
-## Node Responsibilities
-
-## `load_ticket_context`
-
-### Input
-
-- `ticket_id`
-
-### Output
-
-- `ticket`
-- `status = "running"`
-- `current_node = "load_ticket_context"`
-
-### Responsibility
-
-- 从 `ticket_repo` 读取业务数据
-- 初始化 graph 执行上下文
-
-## `classify_ticket`
-
-### Input
-
-- `ticket`
-
-### Output
-
-- `classification`
-- `current_node = "classify_ticket"`
-
-### Responsibility
-
-- 基于规则做最小分类
-- 不做工具调用
-- 不做复杂 reasoning
-
-### Rule Sketch
-
-- 出现“退款 / 发票 / 扣费 / 账单” -> `billing`
-- 出现“登录 / 密码 / 锁定 / 账号” -> `account`
-- 出现“报错 / 无响应 / bug / 导出失败” -> `bug`
-- 否则 -> `other`
-
-## `retrieve_knowledge`
-
-### Input
-
-- `classification`
-- `ticket`
-
-### Output
-
-- `retrieval_query`
-- `retrieved_chunks`
-- `current_node = "retrieve_knowledge"`
-
-### Responsibility
-
-- 组合 query
-- 调 `retrieval.py`
-- 返回 top-k `KBHit`
-
-## `draft_reply`
-
-### Input
-
-- `ticket`
-- `classification`
-- `retrieved_chunks`
-
-### Output
-
-- `draft`
-- `status = "done"`
-- `current_node = "draft_reply"`
-
-### Responsibility
-
-- 先生成模板版草稿
-- 引用命中文档标题
-- 没有 hit 时降低置信度，避免乱编
-
-## Graph Shape
-
-今天只做固定边，不做条件路由：
-
-```mermaid
-flowchart LR
-    A([START]) --> B[load_ticket_context]
-    B --> C[classify_ticket]
-    C --> D[retrieve_knowledge]
-    D --> E[draft_reply]
-    E --> F([END])
-```
-
-## Graph Builder Skeleton
-
-```python
-from functools import lru_cache
-from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.memory import InMemorySaver
-
-from app.graph.state import TicketState
-from app.graph.nodes.load_ticket_context import load_ticket_context
-from app.graph.nodes.classify_ticket import classify_ticket
-from app.graph.nodes.retrieve_knowledge import retrieve_knowledge
-from app.graph.nodes.draft_reply import draft_reply
-
-@lru_cache(maxsize=1)
-def get_support_graph():
-    builder = StateGraph(TicketState)
-
-    builder.add_node("load_ticket_context", load_ticket_context)
-    builder.add_node("classify_ticket", classify_ticket)
-    builder.add_node("retrieve_knowledge", retrieve_knowledge)
-    builder.add_node("draft_reply", draft_reply)
-
-    builder.add_edge(START, "load_ticket_context")
-    builder.add_edge("load_ticket_context", "classify_ticket")
-    builder.add_edge("classify_ticket", "retrieve_knowledge")
-    builder.add_edge("retrieve_knowledge", "draft_reply")
-    builder.add_edge("draft_reply", END)
-
-    return builder.compile(checkpointer=InMemorySaver())
-```
-
-## Service Design
-
-## `ticket_repo.py`
-
-### Responsibilities
-
-- `list_tickets()`
-- `get_ticket_by_id(ticket_id: str)`
-
-### Rules
-
-- 统一从 `demo_tickets.json` 读取
-- API 层不自己打开文件
-- graph node 只依赖 service，不依赖文件路径细节
-
-## `retrieval.py`
-
-### Responsibilities
-
-- 读取本地 KB 文档
-- 做最简 lexical scoring
-- 返回 `KBHit[]`
-
-### Rules
-
-- 先做稳定版，不做 embedding
-- 先保证“能解释、能调试、能替换”
-
-## API Plan
-
-## Endpoint
-
-`POST /api/v1/tickets/{ticket_id}/run`
-
-### Responsibility
-
-- 接收 `ticket_id`
-- 构造 `thread_id`
-- 调 graph
-- 返回结构化结果
-
-### Response
-
-- `thread_id`
-- `ticket_id`
-- `status`
-- `classification`
-- `retrieved_chunks`
-- `draft`
-
-### Error Handling
-
-- ticket 不存在 -> 404
-- 其他异常 -> 500 + 明确错误信息（今天可先最简处理）
-
-## Minimal Route Skeleton
-
-```python
-from fastapi import APIRouter, HTTPException
-from app.graph.builder import get_support_graph
-from app.schemas.graph import RunTicketResponse
-
-router = APIRouter()
-
-@router.post("/tickets/{ticket_id}/run", response_model=RunTicketResponse)
-def run_ticket(ticket_id: str):
-    graph = get_support_graph()
-    thread_id = f"ticket-{ticket_id}"
-    config = {"configurable": {"thread_id": thread_id}}
-
-    try:
-        result = graph.invoke({"ticket_id": ticket_id}, config=config)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Ticket not found")
-
-    return {
-        "thread_id": thread_id,
-        "ticket_id": ticket_id,
-        "status": result["status"],
-        "classification": result["classification"],
-        "retrieved_chunks": result["retrieved_chunks"],
-        "draft": result["draft"],
+9. `backend/app/graph/nodes/__init__.py`
+10. `backend/app/graph/nodes/load_ticket_context.py`
+11. `backend/app/graph/nodes/classify_ticket.py`
+12. `backend/app/graph/nodes/retrieve_knowledge.py`
+13. `backend/app/graph/nodes/draft_reply.py`
+14. `backend/app/graph/builder.py`
+15. `backend/app/api/v1/runs.py`
+16. `backend/app/main.py`
+17. `frontend/src/lib/types.ts`
+18. `frontend/src/lib/api.ts`
+19. `frontend/src/components/TicketDetail.tsx`
+20. `frontend/src/components/WorkflowResultPanel.tsx`
+21. `frontend/src/pages/TicketsPage.tsx`
+22. `backend/tests/integration/test_graph_smoke.py`
+23. Existing or new frontend tests under `frontend/src`
+
+Run backend tests from `backend`:
+
+    cd /home/poter/resume-pj/supportflow-agent/backend
+    uv run pytest
+
+Expected success looks like this, with the exact test count allowed to differ as tests are added:
+
+    ============================= test session starts =============================
+    ...
+    backend/tests/test_api.py .
+    backend/tests/integration/test_graph_smoke.py .
+    ============================== 2 passed in ...s ===============================
+
+Run frontend tests from `frontend`:
+
+    cd /home/poter/resume-pj/supportflow-agent/frontend
+    npm test -- --run
+
+Expected success looks like this, with the exact test count allowed to differ:
+
+    RUN  v...
+    PASS src/components/TicketList.test.tsx ...
+    PASS src/pages/TicketsPage.test.tsx ...
+    Test Files ... passed
+
+If there is no dedicated frontend test script, inspect `frontend/package.json` and run the available check command that best proves the React code builds or tests. Record the actual command and result in `Artifacts and Notes`.
+
+## Validation and Acceptance
+
+The backend acceptance criteria are behavior-focused. Running the backend test suite must pass. A known ticket id, such as `T-1001` if it exists in `data/sample_tickets/demo_tickets.json`, must be accepted by `POST /api/v1/tickets/{ticket_id}/run`. The response must include `thread_id`, `ticket_id`, `status`, `classification`, `retrieved_chunks`, and `draft`. `status` must be `done`. `classification.category` must be one of `billing`, `account`, `product`, `bug`, or `other`. `classification.priority` must be one of `P0`, `P1`, `P2`, or `P3`. `retrieved_chunks` must be a list of objects containing `doc_id`, `title`, `score`, and `snippet`. `draft.answer` must be non-empty, and `draft.citations` must name only retrieved documents.
+
+The missing-ticket behavior must also be visible. Calling the run endpoint with an id that is not in `data/sample_tickets/demo_tickets.json` must return HTTP 404 rather than a successful empty result.
+
+The frontend acceptance criteria are also behavior-focused. On the ticket page, a user must be able to select a ticket, see its details, click "Run workflow", and then see classification, evidence, and a draft reply. Loading and error states should be visible enough that a user is not left with a dead button or blank panel.
+
+This plan is complete only when the observable product slice works without manual data manipulation. The local system should still honor repository guardrails: no multi-agent patterns, no unnecessary abstractions, no database migration, no vector database, no streaming, and no Day 3 human review interrupt work.
+
+## Idempotence and Recovery
+
+The implementation is additive and safe to repeat. Re-running tests must not mutate persistent data. The in-memory LangGraph checkpointer is intentionally process-local, so restarting the backend resets graph run state. That is acceptable for Day 2.
+
+If a knowledge-base file is edited with poor content and retrieval stops returning hits, restore the document to plain Markdown with a short title and support guidance that includes words from the matching demo ticket. If a graph node fails after partial implementation, run the graph directly before debugging the API so the failure stays close to the node. If the API works but the UI fails, inspect browser network requests and compare the actual JSON shape to `frontend/src/lib/types.ts`.
+
+Do not use destructive cleanup commands. Do not remove existing user changes. If tests create cache files such as `__pycache__`, `.pytest_cache`, or frontend build artifacts, leave them alone unless the user explicitly asks for cleanup.
+
+## Artifacts and Notes
+
+The final implementation should record concise evidence here when commands have been run.
+
+Current planning evidence:
+
+    docs/PLANS.md requires these sections to be present and maintained:
+    Progress
+    Surprises & Discoveries
+    Decision Log
+    Outcomes & Retrospective
+    Context and Orientation
+    Plan of Work
+    Concrete Steps
+    Validation and Acceptance
+    Idempotence and Recovery
+    Artifacts and Notes
+    Interfaces and Dependencies
+
+Expected manual API transcript after implementation:
+
+    cd /home/poter/resume-pj/supportflow-agent/backend
+    uv run uvicorn app.main:app --reload
+    curl -s -X POST http://127.0.0.1:8000/api/v1/tickets/T-1001/run
+    {
+      "thread_id": "ticket-T-1001",
+      "ticket_id": "T-1001",
+      "status": "done",
+      "classification": {
+        "category": "billing",
+        "priority": "P2",
+        "reason": "..."
+      },
+      "retrieved_chunks": [
+        {
+          "doc_id": "refund_policy",
+          "title": "Refund Policy",
+          "score": 0.5,
+          "snippet": "..."
+        }
+      ],
+      "draft": {
+        "answer": "...",
+        "citations": ["refund_policy"],
+        "confidence": 0.7
+      }
     }
-```
 
-## Frontend Plan
+## Interfaces and Dependencies
+
+Use only the existing backend and frontend stacks unless the repository already declares a needed dependency. Do not add a database, vector store, external LLM provider, streaming transport, or multi-agent framework for Day 2.
 
-今天前端只需要 3 个新增能力：
+In `backend/app/services/ticket_repo.py`, define these functions:
 
-1. 点击左侧 ticket 后，右侧显示 detail
-2. 点击“Run workflow”按钮
-3. 展示 workflow 结果：
-   - category / priority
-   - top KB hits
-   - draft answer / confidence
+    def list_tickets() -> list[dict[str, object]]:
+        ...
 
-## Recommended Components
+    def get_ticket_by_id(ticket_id: str) -> dict[str, object]:
+        ...
 
-- `TicketDetail.tsx`
-- `WorkflowResultPanel.tsx`
+`get_ticket_by_id` should raise a clear not-found exception when the ticket does not exist. If a custom exception is added, keep it in the same module and translate it to HTTP 404 in `backend/app/api/v1/runs.py`.
 
-## UI Constraints
+In `backend/app/services/retrieval.py`, define a local retrieval function with this shape:
 
-今天不做：
+    def retrieve_knowledge(query: str, *, top_k: int = 3) -> list[KBHit]:
+        ...
 
-- timeline
-- streaming
-- state animation
-- review queue
-- fancy loading choreography
+The function should read Markdown files from `data/kb`, compute a simple keyword-overlap score, sort descending by score, and return at most `top_k` hits. A hit should include a stable `doc_id` derived from the file stem, a human-readable title, a numeric score, and a snippet.
 
-今天只做**结果可见**。
+In `backend/app/schemas/graph.py`, define these Pydantic models:
 
-## Testing Plan
+    class TicketClassification(BaseModel):
+        category: Literal["billing", "account", "product", "bug", "other"]
+        priority: Literal["P0", "P1", "P2", "P3"]
+        reason: str
 
-新增一个最小 smoke test：
+    class KBHit(BaseModel):
+        doc_id: str
+        title: str
+        score: float
+        snippet: str
 
-```python
-def test_graph_smoke():
-    graph = get_support_graph()
-    config = {"configurable": {"thread_id": "test-ticket-T-1001"}}
+    class DraftReply(BaseModel):
+        answer: str
+        citations: list[str]
+        confidence: float
 
-    result = graph.invoke({"ticket_id": "T-1001"}, config=config)
+    class RunTicketResponse(BaseModel):
+        thread_id: str
+        ticket_id: str
+        status: Literal["done", "failed", "running"]
+        classification: TicketClassification
+        retrieved_chunks: list[KBHit]
+        draft: DraftReply
 
-    assert result["classification"].category == "billing"
-    assert len(result["retrieved_chunks"]) >= 1
-    assert len(result["draft"].citations) >= 1
-```
+In `backend/app/graph/state.py`, define `TicketState` as a `TypedDict` with these fields:
 
-### Why This Test Exists
+    class TicketState(TypedDict, total=False):
+        thread_id: str
+        ticket_id: str
+        ticket: dict[str, Any]
+        classification: TicketClassification
+        retrieval_query: str
+        retrieved_chunks: list[KBHit]
+        draft: DraftReply
+        status: Literal["queued", "running", "done", "failed"]
+        current_node: Literal[
+            "load_ticket_context",
+            "classify_ticket",
+            "retrieve_knowledge",
+            "draft_reply",
+        ]
+        error: str | None
 
-这个测试不是为了追求覆盖率，而是为了守住最短主链路：
+Each graph node should be a plain synchronous Python function that accepts `TicketState` and returns a partial `TicketState`. The intended signatures are:
 
-- graph 可以跑
-- 分类结果合理
-- 检索不是空的
-- 草稿带有引用
+    def load_ticket_context(state: TicketState) -> TicketState: ...
+    def classify_ticket(state: TicketState) -> TicketState: ...
+    def retrieve_knowledge(state: TicketState) -> TicketState: ...
+    def draft_reply(state: TicketState) -> TicketState: ...
 
-## Interview Framing
+In `backend/app/graph/builder.py`, define:
 
-今天做完后，你至少要能讲清楚这 5 个问题。
+    @lru_cache(maxsize=1)
+    def get_support_graph():
+        builder = StateGraph(TicketState)
+        builder.add_node("load_ticket_context", load_ticket_context)
+        builder.add_node("classify_ticket", classify_ticket)
+        builder.add_node("retrieve_knowledge", retrieve_knowledge)
+        builder.add_node("draft_reply", draft_reply)
+        builder.add_edge(START, "load_ticket_context")
+        builder.add_edge("load_ticket_context", "classify_ticket")
+        builder.add_edge("classify_ticket", "retrieve_knowledge")
+        builder.add_edge("retrieve_knowledge", "draft_reply")
+        builder.add_edge("draft_reply", END)
+        return builder.compile(checkpointer=InMemorySaver())
 
-### 1. 为什么 Day2 先用规则分类和模板草稿，不直接上 LLM？
+In `backend/app/api/v1/runs.py`, expose:
 
-**高质量回答思路：**
+    @router.post("/tickets/{ticket_id}/run", response_model=RunTicketResponse)
+    def run_ticket(ticket_id: str) -> RunTicketResponse:
+        ...
 
-- Day2 目标是先验证 graph 的状态流和节点边界
-- 我先把 contract 稳定下来，再替换节点内部实现
-- 这样能把“编排问题”和“模型问题”分开调试
+In `frontend/src/lib/types.ts`, add TypeScript types that mirror the backend response names and nesting. In `frontend/src/lib/api.ts`, add:
 
-**差回答：**
+    export async function runTicket(ticketId: string): Promise<RunTicketResponse> {
+      ...
+    }
 
-- 模型还没接好
-- 先随便写一下
+The frontend should call the endpoint path `/api/v1/tickets/${ticketId}/run`, matching the existing API base URL conventions in `frontend/src/lib/api.ts`.
 
-### 2. 为什么 graph state 用 TypedDict，而节点输出和 API 输出用 Pydantic？
+## Revision Notes
 
-**高质量回答思路：**
-
-- state 是共享运行态，TypedDict 轻量
-- 节点输出和 API 输出是契约边界，需要更强约束
-- 这是“共享状态”和“边界契约”的分层建模
-
-**差回答：**
-
-- 两个都差不多，我随便选的
-
-### 3. 为什么 retrieval 要抽成 service，而不是直接写在 node 里？
-
-**高质量回答思路：**
-
-- node 负责 orchestration，不负责底层文件读取细节
-- 抽象之后，后续从本地 markdown 切到向量库时 graph 基本不用改
-- 这是为了可替换性和可测试性
-
-**差回答：**
-
-- 我喜欢分文件
-
-### 4. 为什么今天还没做人审 interrupt，却已经接 checkpointer 和 thread_id？
-
-**高质量回答思路：**
-
-- LangGraph 的 persistence 本来就是 thread-scoped checkpoint 模型
-- 我希望 Day3 加 interrupt 时，不需要再改 compile 和调用方式
-- 这是提前把未来最确定会用到的基础设施立住
-
-**差回答：**
-
-- 先接着，万一以后用得到
-
-### 5. 为什么不把 classify / retrieve / draft 合成一个节点？
-
-**高质量回答思路：**
-
-- 合成一个节点当然能跑，但调试性、可见性、后续 checkpoint 粒度会变差
-- 我刻意拆开，是为了分别暴露中间产物和错误归因
-- 后续做前端展示、节点级评测、坏例归因都会更容易
-
-**差回答：**
-
-- LangGraph 就应该多拆几个节点
-
-## Risks and Mitigations
-
-### 风险 1：中文 ticket 命中不到英文 KB
-
-**缓解：**
-
-- 今天先统一 KB 语言
-
-### 风险 2：把 node 写成“半 service 半 orchestration”混合体
-
-**缓解：**
-
-- 所有 IO 都尽量收进 service 层
-
-### 风险 3：API 输出结构不稳定
-
-**缓解：**
-
-- 用 Pydantic `response_model`
-
-### 风险 4：今天贪快直接接 LLM，导致调试维度过多
-
-**缓解：**
-
-- 先 deterministic stub，Day3/Day4 再替换
-
-## Progress
-
-- [ ] Move Day1 plan to `completed/`
-- [ ] Create this Day2 ExecPlan
-- [ ] Align KB docs to Chinese or bilingual
-- [ ] Add `ticket_repo.py`
-- [ ] Add `retrieval.py`
-- [ ] Add `schemas/graph.py`
-- [ ] Update `graph/state.py`
-- [ ] Implement `load_ticket_context`
-- [ ] Implement `classify_ticket`
-- [ ] Implement `retrieve_knowledge`
-- [ ] Implement `draft_reply`
-- [ ] Add `graph/builder.py`
-- [ ] Add `runs.py`
-- [ ] Wire router in `main.py`
-- [ ] Update frontend types and API client
-- [ ] Add detail/result components
-- [ ] Make `/tickets` show workflow result
-- [ ] Add smoke test
-- [ ] Update this plan before end of day
-
-## Decision Log
-
-- Decision: Day2 先做固定 happy path，不做条件路由  
-  Why: 降低变量数，先验证 graph 最小闭环
-
-- Decision: 今天先用规则分类和模板草稿  
-  Why: 先稳住 orchestration 与 contract，再替换模型实现
-
-- Decision: 今天接 `thread_id` 和 in-memory checkpointer  
-  Why: 为 Day3 的 interrupt / resume 预留稳定调用方式
-
-- Decision: retrieval 抽成 service  
-  Why: 减少 node 复杂度，保留检索实现替换空间
-
-## Surprises & Discoveries
-
-- Observation:
-- Evidence:
-
-## End-of-Day Acceptance
-
-今天收工前，必须满足：
-
-- 可以从 `ticket_id` 触发一次完整 graph 执行
-- 浏览器里能看到：
-  - 分类结果
-  - 检索到的 top-k 文档
-  - 一版草稿回复
-- 你能解释 4 个节点分别负责什么
-- 你能解释为什么今天先不用 interrupt / routing / LangSmith
-- 至少 1 个 smoke test 通过
-- 本文档已更新，不是只写代码不记设计
-
-## Outcomes & Retrospective
-
-### What was completed
-
-- To fill at end of day
-
-### What I learned
-
-- To fill at end of day
-
-### What remains unclear
-
-- To fill at end of day
-
-### Next best step
-
-Day3 最值得做的是：
-
-**`risk_gate + human_review_interrupt + review queue`**
+2026-04-23 / Codex: Rewrote the active Day 2 graph happy-path ExecPlan into pure English and reshaped it to follow the `Skeleton of a Good ExecPlan` in `docs/PLANS.md`. The update preserves the original intent, scope, fixed graph path, service boundaries, API contract, and frontend acceptance while adding self-contained context, concrete commands, validation criteria, recovery guidance, interface definitions, and living-document records.
