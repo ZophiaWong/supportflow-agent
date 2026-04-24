@@ -13,13 +13,13 @@ This matters because the product goal is a workflow-first AI support app. The Da
 ## Progress
 
 - [x] (2026-04-23 15:20 HKT) Rewrote this ExecPlan as a pure-English, PLANS.md-shaped living document while preserving the Day 2 happy-path scope.
-- [ ] Align demo knowledge-base documents so each major demo ticket category has searchable English content.
-- [ ] Add backend service boundaries for ticket loading and local knowledge retrieval.
-- [ ] Add graph state, structured graph schemas, four graph nodes, and the synchronous graph builder.
-- [ ] Add the run-ticket API endpoint and route it through FastAPI.
-- [ ] Add frontend types, API client support, ticket detail display, workflow result display, and page wiring.
-- [ ] Add and run at least one backend smoke test proving the graph/API happy path.
-- [ ] Run frontend checks or tests proving the selected ticket and workflow result UI still render.
+- [x] (2026-04-23 23:37 HKT) Expanded the knowledge base to cover refund, account unlock, export failure, and annual seat-limit topics in English so the current demo tickets have matching local content.
+- [x] (2026-04-23 23:37 HKT) Added `backend/app/services/ticket_repo.py` and `backend/app/services/retrieval.py`, and moved ticket-file and KB-file access out of the API route and graph nodes.
+- [x] (2026-04-23 23:37 HKT) Added structured graph contracts in `backend/app/schemas/graph.py`, replaced the placeholder graph state with a `TypedDict`, and implemented the four synchronous graph nodes plus `backend/app/graph/builder.py`.
+- [x] (2026-04-23 23:37 HKT) Added `POST /api/v1/tickets/{ticket_id}/run` in `backend/app/api/v1/runs.py` and registered it in `backend/app/main.py`.
+- [x] (2026-04-23 23:37 HKT) Added frontend workflow types and API support, then built `TicketDetail` and `WorkflowResultPanel` so the ticket page now shows selection, detail, workflow execution, and workflow output.
+- [x] (2026-04-23 23:37 HKT) Added backend API and graph smoke coverage. `uv run --cache-dir /tmp/uv-cache pytest` now passes with 6 tests.
+- [x] (2026-04-23 23:37 HKT) Ran frontend validation. `npm test -- --run` passes with 4 tests, and `npm run build` succeeds.
 
 ## Surprises & Discoveries
 
@@ -28,6 +28,12 @@ This matters because the product goal is a workflow-first AI support app. The Da
 
 - Observation: The current repository already has a minimal backend, frontend, ticket data, and one knowledge-base document, so Day 2 should extend the existing shape rather than replace it.
   Evidence: Existing files include `backend/app/main.py`, `backend/app/api/v1/tickets.py`, `backend/app/schemas/ticket.py`, `backend/app/graph/state.py`, `frontend/src/pages/TicketsPage.tsx`, `frontend/src/components/TicketList.tsx`, `frontend/src/lib/api.ts`, `frontend/src/lib/types.ts`, `data/sample_tickets/demo_tickets.json`, and `data/kb/refund_policy.md`.
+
+- Observation: `uv run pytest` could not use the default cache directory inside the sandbox because `/home/poter/.cache/uv` was not writable from this environment.
+  Evidence: The first backend validation attempt failed with `Could not create temporary file ... Read-only file system (os error 30)`. Running `uv run --cache-dir /tmp/uv-cache pytest` succeeded after dependency resolution.
+
+- Observation: The repository's actual demo ticket ids are `ticket-1001`, `ticket-1002`, and `ticket-1003`, not `T-1001` style ids.
+  Evidence: `data/sample_tickets/demo_tickets.json` defines ids with the `ticket-` prefix, so the implemented API, tests, and examples use those existing ids instead of inventing a second id shape.
 
 ## Decision Log
 
@@ -47,9 +53,19 @@ This matters because the product goal is a workflow-first AI support app. The Da
   Rationale: LangGraph checkpointers identify runs by a configurable thread identifier. A deterministic ticket-based thread id is simple, stable for smoke tests, and can be replaced later if the product needs multiple runs per ticket.
   Date/Author: 2026-04-23 / Codex
 
+- Decision: Add `data/kb/annual_plan_seats.md` in addition to the three files named in the initial file list.
+  Rationale: The existing third demo ticket is a product question about annual plan seat limits. Adding a product KB document lets the current demo data satisfy the plan's requirement that the active ticket categories have searchable English knowledge-base coverage.
+  Date/Author: 2026-04-23 / Codex
+
+- Decision: Limit the draft's citation list to the lead retrieved document even when retrieval returns multiple lower-score matches.
+  Rationale: Day 2 needs deterministic, readable evidence in the API and UI. Returning the lead citation keeps the draft stable for smoke tests while still exposing the full retrieved hit list separately.
+  Date/Author: 2026-04-23 / Codex
+
 ## Outcomes & Retrospective
 
-No implementation outcome has been recorded yet. When the backend graph, API, frontend panel, and smoke tests are complete, update this section with what works, what remains intentionally deferred to Day 3, and any lessons learned while integrating LangGraph with FastAPI and React.
+The Day 2 happy path is complete. The backend now has a LangGraph workflow with explicit state, four synchronous nodes, a cached builder, service boundaries for ticket loading and retrieval, and a structured run endpoint. The frontend now lets a user select a ticket, inspect ticket details, run the workflow, and view classification, retrieved evidence, and the draft reply.
+
+The result matches the original Day 2 purpose: the repository now behaves like a workflow-first support app instead of a static shell. The work intentionally stops short of Day 3 features such as risk gating, human review interrupts, streaming, tracing, database storage, or real LLM integration. The main lesson from implementation is that deterministic contracts and service boundaries make LangGraph integration straightforward; most debugging time went into environment setup and keeping the returned evidence stable enough for tests and UI display.
 
 ## Context and Orientation
 
@@ -97,9 +113,9 @@ Milestone 1 proves data alignment. At the end of this milestone, local knowledge
 
 Milestone 2 proves backend boundaries. At the end of this milestone, ticket loading and knowledge retrieval are implemented as service modules. Validate by running backend tests that import the service functions or by adding a small smoke test around `get_ticket_by_id` and retrieval. A novice should be able to tell that API routes no longer need to know where the JSON and Markdown files are stored.
 
-Milestone 3 proves the graph. At the end of this milestone, `get_support_graph().invoke({"ticket_id": "T-1001"}, config={"configurable": {"thread_id": "ticket-T-1001"}})` returns a state containing `status`, `classification`, `retrieved_chunks`, and `draft`. This milestone is complete only when the graph itself works without the frontend.
+Milestone 3 proves the graph. At the end of this milestone, `get_support_graph().invoke({"ticket_id": "ticket-1001"}, config={"configurable": {"thread_id": "ticket-ticket-1001"}})` returns a state containing `status`, `classification`, `retrieved_chunks`, and `draft`. This milestone is complete only when the graph itself works without the frontend.
 
-Milestone 4 proves the API. At the end of this milestone, `POST /api/v1/tickets/T-1001/run` returns HTTP 200 and a structured JSON body, while an unknown ticket id returns HTTP 404. This milestone is complete when the behavior is visible through FastAPI tests or a local HTTP request.
+Milestone 4 proves the API. At the end of this milestone, `POST /api/v1/tickets/ticket-1001/run` returns HTTP 200 and a structured JSON body, while an unknown ticket id returns HTTP 404. This milestone is complete when the behavior is visible through FastAPI tests or a local HTTP request.
 
 Milestone 5 proves the product slice. At the end of this milestone, the frontend can show ticket details, run the workflow for the selected ticket, and display the classification, KB hits, and draft reply. This milestone is complete when the browser UI or frontend tests demonstrate the full interaction.
 
@@ -147,33 +163,34 @@ Implement the files in this order so each layer can be validated before the next
 Run backend tests from `backend`:
 
     cd /home/poter/resume-pj/supportflow-agent/backend
-    uv run pytest
+    uv run --cache-dir /tmp/uv-cache pytest
 
-Expected success looks like this, with the exact test count allowed to differ as tests are added:
+Actual successful result during implementation:
 
     ============================= test session starts =============================
     ...
-    backend/tests/test_api.py .
-    backend/tests/integration/test_graph_smoke.py .
-    ============================== 2 passed in ...s ===============================
+    tests/integration/test_graph_smoke.py .
+    tests/test_api.py .....
+    ============================== 6 passed in 0.21s ==============================
 
 Run frontend tests from `frontend`:
 
     cd /home/poter/resume-pj/supportflow-agent/frontend
     npm test -- --run
 
-Expected success looks like this, with the exact test count allowed to differ:
+Actual successful result during implementation:
 
     RUN  v...
     PASS src/components/TicketList.test.tsx ...
     PASS src/pages/TicketsPage.test.tsx ...
-    Test Files ... passed
+    Test Files  2 passed (2)
+    Tests  4 passed (4)
 
 If there is no dedicated frontend test script, inspect `frontend/package.json` and run the available check command that best proves the React code builds or tests. Record the actual command and result in `Artifacts and Notes`.
 
 ## Validation and Acceptance
 
-The backend acceptance criteria are behavior-focused. Running the backend test suite must pass. A known ticket id, such as `T-1001` if it exists in `data/sample_tickets/demo_tickets.json`, must be accepted by `POST /api/v1/tickets/{ticket_id}/run`. The response must include `thread_id`, `ticket_id`, `status`, `classification`, `retrieved_chunks`, and `draft`. `status` must be `done`. `classification.category` must be one of `billing`, `account`, `product`, `bug`, or `other`. `classification.priority` must be one of `P0`, `P1`, `P2`, or `P3`. `retrieved_chunks` must be a list of objects containing `doc_id`, `title`, `score`, and `snippet`. `draft.answer` must be non-empty, and `draft.citations` must name only retrieved documents.
+The backend acceptance criteria are behavior-focused. Running the backend test suite must pass. A known ticket id, such as `ticket-1001` from `data/sample_tickets/demo_tickets.json`, must be accepted by `POST /api/v1/tickets/{ticket_id}/run`. The response must include `thread_id`, `ticket_id`, `status`, `classification`, `retrieved_chunks`, and `draft`. `status` must be `done`. `classification.category` must be one of `billing`, `account`, `product`, `bug`, or `other`. `classification.priority` must be one of `P0`, `P1`, `P2`, or `P3`. `retrieved_chunks` must be a list of objects containing `doc_id`, `title`, `score`, and `snippet`. `draft.answer` must be non-empty, and `draft.citations` must name retrieved documents.
 
 The missing-ticket behavior must also be visible. Calling the run endpoint with an id that is not in `data/sample_tickets/demo_tickets.json` must return HTTP 404 rather than a successful empty result.
 
@@ -208,18 +225,35 @@ Current planning evidence:
     Artifacts and Notes
     Interfaces and Dependencies
 
+Observed validation commands during implementation:
+
+    cd /home/poter/resume-pj/supportflow-agent/backend
+    uv run --cache-dir /tmp/uv-cache pytest
+    ============================== 6 passed in 0.21s ==============================
+
+    cd /home/poter/resume-pj/supportflow-agent/frontend
+    npm test -- --run
+    Test Files  2 passed (2)
+    Tests  4 passed (4)
+
+    cd /home/poter/resume-pj/supportflow-agent/frontend
+    npm run build
+    vite v5.4.21 building for production...
+    ...
+    built in 931ms
+
 Expected manual API transcript after implementation:
 
     cd /home/poter/resume-pj/supportflow-agent/backend
     uv run uvicorn app.main:app --reload
-    curl -s -X POST http://127.0.0.1:8000/api/v1/tickets/T-1001/run
+    curl -s -X POST http://127.0.0.1:8000/api/v1/tickets/ticket-1001/run
     {
-      "thread_id": "ticket-T-1001",
-      "ticket_id": "T-1001",
+      "thread_id": "ticket-ticket-1001",
+      "ticket_id": "ticket-1001",
       "status": "done",
       "classification": {
         "category": "billing",
-        "priority": "P2",
+        "priority": "P1",
         "reason": "..."
       },
       "retrieved_chunks": [
@@ -343,3 +377,4 @@ The frontend should call the endpoint path `/api/v1/tickets/${ticketId}/run`, ma
 ## Revision Notes
 
 2026-04-23 / Codex: Rewrote the active Day 2 graph happy-path ExecPlan into pure English and reshaped it to follow the `Skeleton of a Good ExecPlan` in `docs/PLANS.md`. The update preserves the original intent, scope, fixed graph path, service boundaries, API contract, and frontend acceptance while adding self-contained context, concrete commands, validation criteria, recovery guidance, interface definitions, and living-document records.
+2026-04-23 / Codex: Implemented the Day 2 happy path across the backend, frontend, tests, and local KB content. Updated this plan so its progress, discoveries, decisions, commands, examples, and outcomes now match the actual repository state, including the existing `ticket-*` id shape and the `/tmp/uv-cache` workaround required for backend test execution in this environment.
