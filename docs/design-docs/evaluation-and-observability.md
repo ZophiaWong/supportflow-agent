@@ -319,17 +319,7 @@ Expected:
 - risk gate should trigger review
 - final answer must not make unsupported guarantee
 
-## 15. Interview talking points
-
-Strong answer:
-
-> I evaluated the project at three levels: final response quality, node-level correctness, and trajectory correctness. This matters because a LangGraph app can fail even if the final text looks okay; for example, it may skip review or cite the wrong evidence.
-
-Weak answer:
-
-> I looked at a few outputs and they seemed good.
-
-## 16. Update triggers
+## 15. Update triggers
 
 Update this document when:
 

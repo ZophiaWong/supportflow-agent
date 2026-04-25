@@ -388,15 +388,6 @@ Eval tables:
 
 Postgres + optional pgvector.
 
-## 7. Interview talking points
-
-Strong answer:
-
-> I did not start with a full database because the first priority was to validate the workflow. The planned schema separates business tickets, graph runs, review requests, KB chunks, and eval results, which maps directly to the system boundaries.
-
-Weak answer:
-
-> I added a database because every backend project should have one.
 
 ## 8. Update triggers
 

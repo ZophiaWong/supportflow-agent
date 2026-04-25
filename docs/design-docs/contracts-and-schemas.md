@@ -387,17 +387,7 @@ test_resume_request_reject_without_edited_answer
 test_frontend_types_match_api_schema
 ```
 
-## 11. Interview talking points
-
-Strong answer:
-
-> I separated domain schemas, graph state, node contracts, API responses, and frontend types. The reason is that LLM systems fail at boundaries, so I want each boundary to be validated and observable.
-
-Weak answer:
-
-> I used Pydantic because FastAPI uses it.
-
-## 12. Update triggers
+## 11. Update triggers
 
 Update this document when:
 

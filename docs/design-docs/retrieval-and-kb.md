@@ -253,13 +253,13 @@ Do not allow the model to invent policy.
 
 Track these metrics:
 
-| Metric | Meaning |
-|---|---|
-| retrieval_hit_rate | percentage of tickets with at least one KB hit |
-| citation_coverage | percentage of drafts with citations |
+| Metric                     | Meaning                                                       |
+| -------------------------- | ------------------------------------------------------------- |
+| retrieval_hit_rate         | percentage of tickets with at least one KB hit                |
+| citation_coverage          | percentage of drafts with citations                           |
 | evidence_precision_sampled | sampled reviewer judgment on whether evidence supports answer |
-| no_evidence_review_rate | review rate caused by missing evidence |
-| avg_top_score | retrieval confidence proxy |
+| no_evidence_review_rate    | review rate caused by missing evidence                        |
+| avg_top_score              | retrieval confidence proxy                                    |
 
 ## 12. Test cases
 
@@ -273,24 +273,14 @@ Minimum cases:
 
 ## 13. Implementation phases
 
-| Phase | Retrieval capability |
-|---|---|
-| Day2 | lexical top-k retrieval |
-| Day3 | citation display in UI |
+| Phase | Retrieval capability                |
+| ----- | ----------------------------------- |
+| Day2  | lexical top-k retrieval             |
+| Day3  | citation display in UI              |
 | Week1 | ingestion script + stable chunk IDs |
-| Week2 | embedding backend + evaluation |
+| Week2 | embedding backend + evaluation      |
 
-## 14. Interview talking points
-
-Strong answer:
-
-> I started with a simple retrieval baseline because the project first needs a reliable workflow and evidence chain. The retrieval layer is behind a service interface, so I can later replace lexical search with embedding retrieval without changing the LangGraph graph.
-
-Weak answer:
-
-> I used RAG because every LLM app needs RAG.
-
-## 15. Update triggers
+## 14. Update triggers
 
 Update this document when:
 

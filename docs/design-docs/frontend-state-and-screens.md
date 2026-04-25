@@ -194,31 +194,31 @@ const showDraft = activeRun?.draft != null;
 ### Fetch tickets
 
 ```ts
-GET /api/v1/tickets
+GET / api / v1 / tickets;
 ```
 
 ### Run ticket
 
 ```ts
-POST /api/v1/tickets/{ticket_id}/run
+POST / api / v1 / tickets / { ticket_id } / run;
 ```
 
 ### Get pending reviews
 
 ```ts
-GET /api/v1/reviews/pending
+GET / api / v1 / reviews / pending;
 ```
 
 ### Resume run
 
 ```ts
-POST /api/v1/runs/{thread_id}/resume
+POST / api / v1 / runs / { thread_id } / resume;
 ```
 
 ### Get run state
 
 ```ts
-GET /api/v1/runs/{thread_id}/state
+GET / api / v1 / runs / { thread_id } / state;
 ```
 
 ## 6. Initial implementation order
@@ -302,11 +302,11 @@ Rules:
 
 Reviewer actions:
 
-| Action | UI behavior |
-|---|---|
+| Action  | UI behavior               |
+| ------- | ------------------------- |
 | approve | no edited answer required |
-| edit | textarea required |
-| reject | reviewer note recommended |
+| edit    | textarea required         |
+| reject  | reviewer note recommended |
 
 Validation:
 
@@ -401,17 +401,7 @@ Do not build:
 - WebSocket
 - chart-heavy observability page
 
-## 15. Interview talking points
-
-Strong answer:
-
-> The frontend is designed to expose the workflow state, not just chat messages. This makes the project more explainable: the interviewer can see classification, retrieval evidence, draft confidence, risk flags, and human review decisions.
-
-Weak answer:
-
-> I made a UI because the project needs a frontend.
-
-## 16. Update triggers
+## 15. Update triggers
 
 Update this document when:
 

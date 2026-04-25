@@ -63,14 +63,14 @@ class RiskDecision(BaseModel):
 
 ### Must trigger review
 
-| Rule | Reason |
-|---|---|
-| `classification.priority in ["P0", "P1"]` | high severity |
-| `draft.confidence < 0.75` | low confidence |
-| `retrieved_chunks` is empty | no evidence |
-| `classification.category == "billing"` and `draft.confidence < 0.85` | money-related |
-| `draft.risk_flags` contains sensitive flags | explicit model/node risk |
-| ticket mentions refund, payment, account unlock, legal, outage, data loss | high business risk |
+| Rule                                                                      | Reason                   |
+| ------------------------------------------------------------------------- | ------------------------ |
+| `classification.priority in ["P0", "P1"]`                                 | high severity            |
+| `draft.confidence < 0.75`                                                 | low confidence           |
+| `retrieved_chunks` is empty                                               | no evidence              |
+| `classification.category == "billing"` and `draft.confidence < 0.85`      | money-related            |
+| `draft.risk_flags` contains sensitive flags                               | explicit model/node risk |
+| ticket mentions refund, payment, account unlock, legal, outage, data loss | high business risk       |
 
 ### May auto-finalize
 
@@ -263,14 +263,14 @@ Reviewer should not need to inspect raw JSON for normal use. Raw state can be op
 
 ## 13. Failure handling
 
-| Failure | Handling |
-|---|---|
-| resume without pending interrupt | return 409 conflict |
-| edit without edited_answer | return 422 validation error |
-| unknown decision | return 422 validation error |
-| interrupted thread missing | return 404 |
-| stale review decision | return 409 conflict |
-| graph resume fails | keep review pending and show error |
+| Failure                          | Handling                           |
+| -------------------------------- | ---------------------------------- |
+| resume without pending interrupt | return 409 conflict                |
+| edit without edited_answer       | return 422 validation error        |
+| unknown decision                 | return 422 validation error        |
+| interrupted thread missing       | return 404                         |
+| stale review decision            | return 409 conflict                |
+| graph resume fails               | keep review pending and show error |
 
 ## 14. What not to do in v1
 
@@ -295,17 +295,7 @@ Minimum tests:
 6. Edit resumes with edited answer.
 7. Reject leads to manual takeover.
 
-## 16. Interview talking points
-
-Strong answer:
-
-> Human review is placed after risk_gate because the reviewer needs the classification, evidence, and draft. The gate is deterministic in v1 so the safety boundary is inspectable. LangGraph interrupt is useful here because the graph can persist state, pause, and resume with the human decision.
-
-Weak answer:
-
-> I added human review because LangGraph supports interrupt.
-
-## 17. Update triggers
+## 16. Update triggers
 
 Update this document when:
 
