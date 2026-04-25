@@ -22,7 +22,12 @@ def draft_reply(state: TicketState) -> TicketState:
             f"Best,\nSupportflow Agent"
         )
         citations = [lead_hit.doc_id]
-        confidence = 0.82
+        confidence = {
+            "product": 0.91,
+            "account": 0.78,
+            "billing": 0.82,
+            "bug": 0.76,
+        }.get(classification.category, 0.72)
     else:
         answer = (
             f"Hi {customer_name},\n\n"
@@ -39,6 +44,6 @@ def draft_reply(state: TicketState) -> TicketState:
             citations=citations,
             confidence=confidence,
         ),
-        "status": "done",
+        "status": "running",
         "current_node": "draft_reply",
     }

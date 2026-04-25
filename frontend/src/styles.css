@@ -51,6 +51,22 @@ body {
   color: #4d5f83;
 }
 
+.hero__nav {
+  margin-top: 20px;
+}
+
+.secondary-link {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 10px 16px;
+  color: #173e8f;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(23, 62, 143, 0.16);
+  text-decoration: none;
+  font-weight: 600;
+}
+
 .status-panel {
   padding: 20px 24px;
   border-radius: 18px;
@@ -70,6 +86,11 @@ body {
   grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr);
   gap: 24px;
   align-items: start;
+}
+
+.review-grid {
+  display: grid;
+  gap: 24px;
 }
 
 .workspace__column {
@@ -150,11 +171,17 @@ body {
 }
 
 .ticket-card__action,
-.primary-button {
+.primary-button,
+.form-field select,
+.form-field textarea {
   margin-top: 16px;
+  font: inherit;
+}
+
+.ticket-card__action,
+.primary-button {
   border: 0;
   color: #ffffff;
-  font: inherit;
   cursor: pointer;
 }
 
@@ -194,6 +221,28 @@ body {
   background: linear-gradient(135deg, #173e8f, #3360c4);
   padding: 14px 18px;
   font-weight: 700;
+}
+
+.form-field {
+  display: grid;
+  gap: 8px;
+}
+
+.form-field span {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #476091;
+}
+
+.form-field select,
+.form-field textarea {
+  width: 100%;
+  border: 1px solid rgba(23, 32, 51, 0.12);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: rgba(248, 251, 255, 0.94);
+  color: #172033;
 }
 
 .primary-button:disabled,

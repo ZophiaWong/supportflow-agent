@@ -1,6 +1,14 @@
 from typing import Any, Literal, TypedDict
 
-from app.schemas.graph import DraftReply, KBHit, TicketClassification
+from app.schemas.graph import (
+    DraftReply,
+    FinalResponse,
+    KBHit,
+    PendingReviewItem,
+    RiskAssessment,
+    SubmitReviewDecisionRequest,
+    TicketClassification,
+)
 
 
 class TicketState(TypedDict, total=False):
@@ -11,11 +19,21 @@ class TicketState(TypedDict, total=False):
     retrieval_query: str
     retrieved_chunks: list[KBHit]
     draft: DraftReply
-    status: Literal["queued", "running", "done", "failed"]
+    risk_assessment: RiskAssessment
+    review_required: bool
+    pending_review: PendingReviewItem
+    review_decision: SubmitReviewDecisionRequest
+    final_response: FinalResponse
+    status: Literal["queued", "running", "done", "failed", "waiting_review", "manual_takeover"]
     current_node: Literal[
         "load_ticket_context",
         "classify_ticket",
         "retrieve_knowledge",
         "draft_reply",
+        "risk_gate",
+        "human_review_interrupt",
+        "apply_review_decision",
+        "finalize_reply",
+        "manual_takeover",
     ]
     error: str | None

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { TicketList } from "../components/TicketList";
 import { TicketDetail } from "../components/TicketDetail";
@@ -67,12 +68,18 @@ export function TicketsPage() {
   return (
     <main className="page-shell">
       <section className="hero">
-        <p className="hero__kicker">Day 2 graph happy path</p>
+        <p className="hero__kicker">Day 3 risk gate</p>
         <h1>Support Inbox</h1>
         <p className="hero__lede">
           Select a ticket, run the LangGraph workflow, and inspect the classification,
-          retrieved knowledge, and draft reply.
+          retrieved knowledge, draft reply, and whether the run auto-finalizes or pauses for
+          human review.
         </p>
+        <div className="hero__nav">
+          <Link className="secondary-link" to="/reviews">
+            Open review queue
+          </Link>
+        </div>
       </section>
 
       {loading ? <p className="status-panel">Loading tickets...</p> : null}

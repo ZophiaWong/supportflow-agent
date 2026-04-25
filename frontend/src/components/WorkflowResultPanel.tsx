@@ -57,6 +57,22 @@ export function WorkflowResultPanel({ result, error }: WorkflowResultPanelProps)
         </ul>
       </div>
 
+      {result.risk_assessment ? (
+        <div className="result-section">
+          <h3>Risk gate</h3>
+          <p>{result.risk_assessment.reason}</p>
+          {result.risk_assessment.risk_flags.length > 0 ? (
+            <div className="result-tags">
+              {result.risk_assessment.risk_flags.map((flag) => (
+                <span key={flag} className="pill pill--workflow">
+                  {flag.replace(/_/g, " ")}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="result-section">
         <h3>Draft reply</h3>
         <p className="draft-reply">{result.draft.answer}</p>
@@ -65,6 +81,37 @@ export function WorkflowResultPanel({ result, error }: WorkflowResultPanelProps)
           {result.draft.citations.length > 0 ? result.draft.citations.join(", ") : "None"}
         </p>
       </div>
+
+      {result.status === "waiting_review" && result.pending_review ? (
+        <div className="result-section">
+          <h3>Human review required</h3>
+          <p>
+            This ticket is paused for reviewer action. Open the review queue to approve, edit, or
+            reject the draft.
+          </p>
+          <p className="draft-meta">Thread {result.pending_review.thread_id}</p>
+        </div>
+      ) : null}
+
+      {result.final_response ? (
+        <div className="result-section">
+          <h3>Final response</h3>
+          <p className="draft-reply">{result.final_response.answer}</p>
+          <p className="draft-meta">
+            Disposition {result.final_response.disposition.replace(/_/g, " ")} | Citations:{" "}
+            {result.final_response.citations.length > 0
+              ? result.final_response.citations.join(", ")
+              : "None"}
+          </p>
+        </div>
+      ) : null}
+
+      {result.status === "manual_takeover" ? (
+        <div className="result-section">
+          <h3>Manual takeover</h3>
+          <p>A reviewer rejected the AI draft. A human agent must handle this ticket manually.</p>
+        </div>
+      ) : null}
     </section>
   );
 }

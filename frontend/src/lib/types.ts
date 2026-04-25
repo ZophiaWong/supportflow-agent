@@ -2,6 +2,8 @@ export type TicketStatus = "open" | "pending" | "resolved";
 export type TicketPriority = "low" | "medium" | "high" | "urgent";
 export type WorkflowCategory = "billing" | "account" | "product" | "bug" | "other";
 export type WorkflowPriority = "P0" | "P1" | "P2" | "P3";
+export type WorkflowStatus = "done" | "failed" | "running" | "waiting_review" | "manual_takeover";
+export type ReviewDecision = "approve" | "edit" | "reject";
 
 export interface Ticket {
   id: string;
@@ -32,11 +34,42 @@ export interface DraftReply {
   confidence: number;
 }
 
+export interface RiskAssessment {
+  review_required: boolean;
+  risk_flags: string[];
+  reason: string;
+}
+
+export interface PendingReviewItem {
+  thread_id: string;
+  ticket_id: string;
+  classification: TicketClassification;
+  draft: DraftReply;
+  retrieved_chunks: KBHit[];
+  risk_flags: string[];
+  allowed_decisions: ReviewDecision[];
+}
+
+export interface FinalResponse {
+  answer: string;
+  citations: string[];
+  disposition: "auto_finalized" | "approved" | "edited";
+}
+
+export interface SubmitReviewDecisionRequest {
+  decision: ReviewDecision;
+  reviewer_note?: string | null;
+  edited_answer?: string | null;
+}
+
 export interface RunTicketResponse {
   thread_id: string;
   ticket_id: string;
-  status: "done" | "failed" | "running";
+  status: WorkflowStatus;
   classification: TicketClassification;
   retrieved_chunks: KBHit[];
   draft: DraftReply;
+  risk_assessment?: RiskAssessment | null;
+  pending_review?: PendingReviewItem | null;
+  final_response?: FinalResponse | null;
 }

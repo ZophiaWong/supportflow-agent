@@ -1,31 +1,31 @@
 # supportflow-agent
 
-supportflow-agent is a workflow-first AI support app for ticket triage and response drafting.
+supportflow-agent is a workflow-first AI support app for ticket triage, knowledge retrieval, response drafting, and human review for risky cases.
 
-The current repository state is the Day 2 happy path:
+The current repository state is the Day 3 MVP slice:
 
 - FastAPI backend with `GET /healthz`
 - FastAPI ticket list endpoint at `GET /api/v1/tickets`
 - FastAPI workflow run endpoint at `POST /api/v1/tickets/{ticket_id}/run`
-- LangGraph workflow with four synchronous nodes:
-  - `load_ticket_context`
-  - `classify_ticket`
-  - `retrieve_knowledge`
-  - `draft_reply`
+- FastAPI pending review endpoint at `GET /api/v1/reviews/pending`
+- FastAPI resume endpoint at `POST /api/v1/runs/{thread_id}/resume`
+- LangGraph workflow with risk gating and human-in-the-loop resume
 - React ticket inbox at `/tickets`
-- Ticket detail panel and workflow result panel in the frontend
+- React review queue at `/reviews`
 - Local Markdown knowledge base used by the retriever
 
 ## What the app does today
 
 Open the frontend, select a demo ticket, and click `Run workflow`.
 
-The frontend calls `POST /api/v1/tickets/{ticket_id}/run`, and the backend runs a fixed LangGraph path:
+The frontend calls `POST /api/v1/tickets/{ticket_id}/run`, and the backend runs this LangGraph path:
 
 1. Load the selected ticket from local demo data
 2. Classify the ticket with deterministic rules
 3. Retrieve matching KB snippets from `data/kb`
-4. Draft a reply with a lead citation
+4. Draft a reply with citations and confidence
+5. Run a deterministic risk gate
+6. Either auto-finalize the response or interrupt for human review
 
 The UI then shows:
 
@@ -33,6 +33,16 @@ The UI then shows:
 - classification category and priority
 - retrieved knowledge hits
 - draft reply and confidence
+- risk flags and risk-gate reason
+- final response for low-risk tickets
+- waiting-review state for risky tickets
+
+For risky tickets, open `/reviews` to:
+
+- inspect the draft and supporting knowledge
+- approve the draft
+- edit the draft and resume with the edited answer
+- reject the AI draft and mark the ticket for manual takeover
 
 ## Repository layout
 
@@ -50,19 +60,22 @@ Key backend files:
 
 - `backend/app/main.py`: FastAPI app and router wiring
 - `backend/app/api/v1/tickets.py`: ticket list endpoint
-- `backend/app/api/v1/runs.py`: workflow run endpoint
+- `backend/app/api/v1/runs.py`: workflow run and resume endpoints
+- `backend/app/api/v1/reviews.py`: pending review list endpoint
 - `backend/app/services/ticket_repo.py`: demo ticket loading
 - `backend/app/services/retrieval.py`: lexical KB retrieval
+- `backend/app/services/pending_review_store.py`: in-memory pending review storage
 - `backend/app/graph/state.py`: shared graph state
 - `backend/app/graph/nodes/`: graph node implementations
 - `backend/app/graph/builder.py`: compiled LangGraph builder
-- `backend/app/schemas/graph.py`: structured workflow response models
+- `backend/app/schemas/graph.py`: structured workflow request and response models
 
 ## Frontend
 
 Key frontend files:
 
 - `frontend/src/pages/TicketsPage.tsx`: main inbox page
+- `frontend/src/pages/ReviewQueuePage.tsx`: review queue page
 - `frontend/src/components/TicketList.tsx`: selectable ticket list
 - `frontend/src/components/TicketDetail.tsx`: selected ticket detail
 - `frontend/src/components/WorkflowResultPanel.tsx`: workflow output display
@@ -84,12 +97,26 @@ Available routes:
 - `GET /healthz`
 - `GET /api/v1/tickets`
 - `POST /api/v1/tickets/{ticket_id}/run`
+- `GET /api/v1/reviews/pending`
+- `POST /api/v1/runs/{thread_id}/resume`
 
-Example:
+Example low-risk run:
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/api/v1/tickets/ticket-1003/run
+```
+
+Example risky run and resume:
 
 ```bash
 curl -s -X POST http://127.0.0.1:8000/api/v1/tickets/ticket-1001/run
+curl -s http://127.0.0.1:8000/api/v1/reviews/pending
+curl -s -X POST http://127.0.0.1:8000/api/v1/runs/<thread_id>/resume \
+  -H 'content-type: application/json' \
+  -d '{"decision":"approve","reviewer_note":"evidence is sufficient"}'
 ```
+
+Important note: pending reviews and LangGraph checkpoints are in memory only. Restarting the backend clears the review queue and invalidates older `thread_id` values.
 
 ## Run the frontend
 
@@ -99,7 +126,21 @@ npm install
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
-The frontend starts on `http://127.0.0.1:5173/tickets`.
+The frontend starts on:
+
+- `http://127.0.0.1:5173/tickets`
+- `http://127.0.0.1:5173/reviews`
+
+## Manual behavior check
+
+Use the shipped demo tickets to confirm the main behaviors:
+
+- `ticket-1003` should auto-finalize on `/tickets` and show a `Final response`.
+- `ticket-1001` should pause in `waiting_review`, show risk-gate details, and appear on `/reviews`.
+- Approving or editing a pending review should finish the run and show a completed result.
+- Rejecting a pending review should end in `manual_takeover` with no final AI response.
+
+Each workflow run gets a unique `thread_id`, so rerunning the same ticket starts a fresh review item instead of reusing older graph state.
 
 ## Tests
 
@@ -130,15 +171,13 @@ npm run build
 
 This repository intentionally does not yet include:
 
-- conditional routing
-- risk gating
-- human review interrupt/resume
+- durable database storage for reviews or runs
 - streaming
 - LangSmith tracing
-- database storage
 - vector retrieval
 - real LLM generation
 - external ticket system integration
+- external message write-back
 
 ## Planning docs
 
