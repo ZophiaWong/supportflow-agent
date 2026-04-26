@@ -8,23 +8,14 @@ import { TicketsPage } from "./TicketsPage";
 const { runTicketMock } = vi.hoisted(() => ({
   runTicketMock: vi.fn(),
 }));
-const { fetchRunStateMock, fetchRunTimelineMock } = vi.hoisted(() => ({
+const { fetchTicketsMock, fetchRunStateMock, fetchRunTimelineMock } = vi.hoisted(() => ({
+  fetchTicketsMock: vi.fn(),
   fetchRunStateMock: vi.fn(),
   fetchRunTimelineMock: vi.fn(),
 }));
 
 vi.mock("../lib/api", () => ({
-  fetchTickets: vi.fn().mockResolvedValue([
-    {
-      id: "ticket-1002",
-      subject: "Unable to reset administrator password",
-      customer_name: "Jordan Patel",
-      status: "pending",
-      priority: "urgent",
-      created_at: "2026-04-16T10:05:00Z",
-      preview: "We are locked out of the admin dashboard.",
-    },
-  ]),
+  fetchTickets: fetchTicketsMock,
   fetchRunState: fetchRunStateMock,
   fetchRunTimeline: fetchRunTimelineMock,
   runTicket: runTicketMock,
@@ -33,9 +24,21 @@ vi.mock("../lib/api", () => ({
 describe("TicketsPage", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    fetchTicketsMock.mockReset();
     runTicketMock.mockReset();
     fetchRunStateMock.mockReset();
     fetchRunTimelineMock.mockReset();
+    fetchTicketsMock.mockResolvedValue([
+      {
+        id: "ticket-1002",
+        subject: "Unable to reset administrator password",
+        customer_name: "Jordan Patel",
+        status: "pending",
+        priority: "urgent",
+        created_at: "2026-04-16T10:05:00Z",
+        preview: "We are locked out of the admin dashboard.",
+      },
+    ]);
     runTicketMock.mockResolvedValue({
       thread_id: "ticket-ticket-1002-1234abcd",
       ticket_id: "ticket-1002",
@@ -330,5 +333,63 @@ describe("TicketsPage", () => {
     });
 
     expect(fetchRunTimelineMock).toHaveBeenCalledWith("ticket-ticket-1002-1234abcd");
+  });
+
+  it("syncs the selected ticket to the restored thread after reload", async () => {
+    fetchTicketsMock.mockResolvedValueOnce([
+      {
+        id: "ticket-1001",
+        subject: "Need invoice copy",
+        customer_name: "Taylor Brooks",
+        status: "open",
+        priority: "normal",
+        created_at: "2026-04-16T09:00:00Z",
+        preview: "Please resend invoice INV-102.",
+      },
+      {
+        id: "ticket-1002",
+        subject: "Unable to reset administrator password",
+        customer_name: "Jordan Patel",
+        status: "pending",
+        priority: "urgent",
+        created_at: "2026-04-16T10:05:00Z",
+        preview: "We are locked out of the admin dashboard.",
+      },
+    ]);
+    fetchRunStateMock.mockResolvedValueOnce({
+      thread_id: "ticket-ticket-1002-1234abcd",
+      ticket_id: "ticket-1002",
+      status: "done",
+      current_node: "finalize_reply",
+      classification: {
+        category: "account",
+        priority: "P0",
+        reason: "Ticket mentions account access or password recovery.",
+      },
+      retrieved_chunks: [],
+      draft: null,
+      final_response: null,
+      pending_review: null,
+      error: null,
+    });
+    fetchRunTimelineMock.mockResolvedValueOnce({
+      thread_id: "ticket-ticket-1002-1234abcd",
+      events: [],
+    });
+    window.localStorage.setItem("supportflow:last-thread-id", "ticket-ticket-1002-1234abcd");
+
+    render(
+      <MemoryRouter>
+        <TicketsPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(fetchRunStateMock).toHaveBeenCalledWith("ticket-ticket-1002-1234abcd");
+    });
+
+    expect(screen.getAllByRole("heading", { name: "Unable to reset administrator password" })).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Selected" })).toHaveTextContent("Selected");
+    expect(screen.getByRole("button", { name: "Open ticket" })).toBeInTheDocument();
   });
 });

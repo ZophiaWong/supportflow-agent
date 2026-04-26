@@ -90,7 +90,7 @@ export function TicketsPage() {
         setRunState(nextState);
         setTimelineEvents(nextTimeline.events);
         setRunStateError(null);
-        setSelectedTicketId((current) => current ?? nextState.ticket_id);
+        setSelectedTicketId(nextState.ticket_id);
 
         if (shouldPoll(nextState.status)) {
           timeoutId = window.setTimeout(() => {

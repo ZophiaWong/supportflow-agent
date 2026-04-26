@@ -7,7 +7,7 @@ interface RunStatePanelProps {
 }
 
 export function RunStatePanel({ state, loading, error }: RunStatePanelProps) {
-  if (error) {
+  if (error && !state) {
     return <section className="result-panel status-panel status-panel--error">{error}</section>;
   }
 
@@ -29,6 +29,13 @@ export function RunStatePanel({ state, loading, error }: RunStatePanelProps) {
         </div>
         <span className="pill pill--workflow">{state.status}</span>
       </div>
+
+      {error ? (
+        <div className="result-section">
+          <h3>Polling error</h3>
+          <p>{error}</p>
+        </div>
+      ) : null}
 
       <div className="detail-grid">
         <div>
