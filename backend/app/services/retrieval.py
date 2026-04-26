@@ -6,10 +6,67 @@ from app.schemas.graph import KBHit
 
 KB_PATH = Path(__file__).resolve().parents[3] / "data" / "kb"
 WORD_RE = re.compile(r"[a-z0-9]+")
+DOC_CATEGORIES = {
+    "account_unlock": "account",
+    "annual_plan_seats": "product",
+    "bug_export_issue": "bug",
+    "refund_policy": "billing",
+}
+STOPWORDS = {
+    "about",
+    "after",
+    "all",
+    "and",
+    "any",
+    "are",
+    "before",
+    "but",
+    "can",
+    "for",
+    "from",
+    "has",
+    "have",
+    "how",
+    "into",
+    "need",
+    "not",
+    "now",
+    "our",
+    "out",
+    "the",
+    "this",
+    "was",
+    "we",
+    "when",
+    "which",
+    "with",
+    "you",
+    "your",
+}
+SUPPORT_GENERIC_TERMS = {
+    "account",
+    "customer",
+    "details",
+    "help",
+    "issue",
+    "question",
+    "request",
+    "support",
+    "team",
+}
+MIN_TOKEN_LENGTH = 3
+MIN_OVERLAP_WITHOUT_CATEGORY = 2
+MIN_SCORE = 0.1
 
 
 def _tokenize(text: str) -> set[str]:
-    return {token for token in WORD_RE.findall(text.lower()) if len(token) > 1}
+    return {
+        token
+        for token in WORD_RE.findall(text.lower())
+        if len(token) >= MIN_TOKEN_LENGTH
+        and token not in STOPWORDS
+        and token not in SUPPORT_GENERIC_TERMS
+    }
 
 
 def _extract_title(content: str, path: Path) -> str:
@@ -39,12 +96,18 @@ def _load_kb_documents() -> tuple[dict[str, str], ...]:
                 "title": _extract_title(content, path),
                 "content": content,
                 "snippet": _extract_snippet(content),
+                "category": DOC_CATEGORIES.get(path.stem, "other"),
             }
         )
     return tuple(documents)
 
 
-def retrieve_knowledge(query: str, *, top_k: int = 3) -> list[KBHit]:
+def retrieve_knowledge(
+    query: str,
+    *,
+    category: str | None = None,
+    top_k: int = 3,
+) -> list[KBHit]:
     query_terms = _tokenize(query)
     if not query_terms:
         return []
@@ -59,7 +122,15 @@ def retrieve_knowledge(query: str, *, top_k: int = 3) -> list[KBHit]:
         if not overlap:
             continue
 
-        score = round(len(overlap) / len(query_terms), 4)
+        category_matches = category is not None and category == document["category"]
+        if not category_matches and len(overlap) < MIN_OVERLAP_WITHOUT_CATEGORY:
+            continue
+
+        raw_score = len(overlap) / len(query_terms)
+        score = round(raw_score + (0.35 if category_matches else 0.0), 4)
+        if score < MIN_SCORE:
+            continue
+
         hit = KBHit(
             doc_id=document["doc_id"],
             title=document["title"],

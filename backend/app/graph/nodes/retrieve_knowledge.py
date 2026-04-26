@@ -7,7 +7,6 @@ def retrieve_knowledge(state: TicketState) -> TicketState:
     classification = state["classification"]
     query = " ".join(
         [
-            classification.category,
             str(ticket.get("subject", "")),
             str(ticket.get("preview", "")),
         ]
@@ -15,6 +14,6 @@ def retrieve_knowledge(state: TicketState) -> TicketState:
 
     return {
         "retrieval_query": query,
-        "retrieved_chunks": retrieve_knowledge_hits(query),
+        "retrieved_chunks": retrieve_knowledge_hits(query, category=classification.category),
         "current_node": "retrieve_knowledge",
     }

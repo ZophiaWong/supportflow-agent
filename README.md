@@ -2,7 +2,7 @@
 
 supportflow-agent is a workflow-first AI support app for ticket triage, knowledge retrieval, response drafting, and human review for risky cases.
 
-The current repository state is the Day 6 MVP slice:
+The current repository state is the Day 7 MVP slice:
 
 - FastAPI backend with `GET /healthz`
 - FastAPI ticket list endpoint at `GET /api/v1/tickets`
@@ -172,8 +172,8 @@ The command reads `data/evals/supportflow_v1.jsonl`, runs both `plain_rag_baseli
 Expected summary shape:
 
 ```text
-target=plain_rag_baseline examples=20 category_accuracy=null retrieval_hit_rate=0.85 citation_coverage=1.00 review_trigger_accuracy=0.30 final_pass_rate=0.30 bad_cases=31
-target=graph_v1 examples=20 category_accuracy=1.00 retrieval_hit_rate=0.85 citation_coverage=1.00 review_trigger_accuracy=1.00 final_pass_rate=0.85 bad_cases=6
+target=plain_rag_baseline examples=20 category_accuracy=null retrieval_hit_rate=1.00 citation_coverage=1.00 review_trigger_accuracy=0.30 final_pass_rate=0.30 bad_cases=28
+target=graph_v1 examples=20 category_accuracy=1.00 retrieval_hit_rate=1.00 citation_coverage=1.00 review_trigger_accuracy=1.00 final_pass_rate=1.00 bad_cases=0
 wrote data/evals/results/latest_summary.json
 wrote data/evals/results/bad_cases.jsonl
 wrote data/evals/results/traces/<run_id>/events.jsonl

@@ -218,37 +218,32 @@ Current local output:
     {
       "target": "plain_rag_baseline",
       "category_accuracy": null,
-      "retrieval_hit_rate": 0.85,
+      "retrieval_hit_rate": 1.0,
       "citation_coverage": 1.0,
       "review_trigger_accuracy": 0.3,
       "final_pass_rate": 0.3,
-      "bad_case_count": 31
+      "bad_case_count": 28
     },
     {
       "target": "graph_v1",
       "category_accuracy": 1.0,
-      "retrieval_hit_rate": 0.85,
+      "retrieval_hit_rate": 1.0,
       "citation_coverage": 1.0,
       "review_trigger_accuracy": 1.0,
-      "final_pass_rate": 0.85,
-      "bad_case_count": 6
+      "final_pass_rate": 1.0,
+      "bad_case_count": 0
     }
   ],
   "bad_case_breakdown": {
     "plain_rag_baseline": {
-      "unexpected_retrieval": 3,
       "wrong_review_trigger": 14,
       "wrong_status": 14
-    },
-    "graph_v1": {
-      "missing_expected_risk_flag": 3,
-      "unexpected_retrieval": 3
     }
   }
 }
 ```
 
-The local eval uses JSONL trace files by default. `trace_url` and `langsmith_enabled` are included in trace-related records so a later full LangSmith integration can reuse the artifact shape without changing downstream readers. As of Day 6, `langsmith_enabled` becomes true only when LangSmith environment variables are present; local artifacts remain required either way.
+The local eval uses JSONL trace files by default. `trace_url` and `langsmith_enabled` are included in trace-related records so a later full LangSmith integration can reuse the artifact shape without changing downstream readers. As of Day 7, `graph_v1` has no bad cases on the fixed dataset; the remaining baseline failures are expected because `plain_rag_baseline` has no review gate or workflow status handling. `langsmith_enabled` becomes true only when LangSmith environment variables are present; local artifacts remain required either way.
 
 ## 9. Bad-case loop
 

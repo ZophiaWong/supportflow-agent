@@ -66,6 +66,19 @@ def test_graph_target_can_load_eval_only_ticket() -> None:
     assert "priority_requires_review" in output.metadata["risk_flags"]
 
 
+def test_graph_target_returns_no_evidence_for_unsupported_tickets() -> None:
+    examples = load_eval_dataset(DATASET_PATH)
+    unsupported_examples = [examples[index] for index in (11, 12, 14)]
+
+    for example in unsupported_examples:
+        output = run_graph_v1(example)
+
+        assert output.retrieved_doc_ids == []
+        assert output.citations == []
+        assert output.review_required is True
+        assert "no_evidence" in output.metadata["risk_flags"]
+
+
 def test_unsupported_claim_scoring_detects_forbidden_phrase() -> None:
     example = load_eval_dataset(DATASET_PATH)[15]
     output = EvalTargetOutput(
@@ -134,6 +147,13 @@ def test_offline_eval_writes_summary_bad_cases_and_traces(tmp_path: Path, monkey
     ]
     assert "wrong_review_trigger" in {case["failure_type"] for case in bad_cases}
     assert "plain_rag_baseline" in {case["target"] for case in bad_cases}
+    assert not [
+        case
+        for case in bad_cases
+        if case["target"] == "graph_v1" and case["failure_type"] == "unexpected_retrieval"
+    ]
+    assert graph_summary.final_pass_rate == 1.0
+    assert graph_summary.bad_case_count == 0
 
     trace_events = [
         json.loads(line)

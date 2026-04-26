@@ -120,10 +120,10 @@ refund_policy#refund-timeline#0001
 
 ## 6. Retrieval v0
 
-Day2 retrieval may be lexical:
+Current retrieval is lexical and deterministic:
 
 ```text
-score = keyword overlap + category boost + title boost
+score = filtered keyword overlap + category boost
 ```
 
 Inputs:
@@ -148,10 +148,13 @@ class KBHit(BaseModel):
 Baseline retrieval rules:
 
 - top_k = 3
+- tokenization ignores short tokens, common stopwords, and support-generic words such as `customer`, `support`, `request`, `issue`, and `question`
 - minimum score threshold = 0.1 in lexical mode
-- category match adds boost
-- title match adds boost
+- category match adds a 0.35 boost when the graph passes classifier context
+- without a category match, a document needs at least two meaningful overlapping tokens
 - return empty list explicitly when no hit
+
+The current document categories are defined in `backend/app/services/retrieval.py`: `refund_policy` is billing, `account_unlock` is account, `annual_plan_seats` is product, and `bug_export_issue` is bug. The graph passes classification category separately to retrieval; it does not prepend category text to the free-text query.
 
 ## 7. Retrieval v1
 
