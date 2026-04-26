@@ -14,6 +14,7 @@ from app.schemas.graph import (
 class TicketState(TypedDict, total=False):
     thread_id: str
     ticket_id: str
+    ticket_source: Literal["demo", "eval"]
     ticket: dict[str, Any]
     classification: TicketClassification
     retrieval_query: str

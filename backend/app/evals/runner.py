@@ -1,10 +1,11 @@
 import json
+from collections import Counter, defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
 from app.evals.dataset import load_eval_dataset
-from app.evals.schemas import EvalRunSummary
+from app.evals.schemas import BadCaseRecord, EvalRunSummary
 from app.evals.scoring import score_example, summarize_results
 from app.evals.targets import run_graph_v1, run_plain_rag_baseline
 from app.evals.tracing import TraceWriter
@@ -19,6 +20,16 @@ def _write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
+def _bad_case_breakdown(all_bad_cases: list[BadCaseRecord]) -> dict[str, dict[str, int]]:
+    counts: dict[str, Counter[str]] = defaultdict(Counter)
+    for bad_case in all_bad_cases:
+        counts[bad_case.target][bad_case.failure_type] += 1
+    return {
+        target: dict(sorted(counter.items()))
+        for target, counter in sorted(counts.items())
+    }
+
+
 def run_offline_eval(
     dataset_path: Path,
     output_dir: Path,
@@ -31,7 +42,7 @@ def run_offline_eval(
     target_names = targets or list(TARGET_RUNNERS)
 
     summaries: list[EvalRunSummary] = []
-    all_bad_cases = []
+    all_bad_cases: list[BadCaseRecord] = []
     for target in target_names:
         if target not in TARGET_RUNNERS:
             raise ValueError(f"Unknown eval target: {target}")
@@ -62,6 +73,7 @@ def run_offline_eval(
         "num_examples": len(examples),
         "generated_at": datetime.now(UTC).isoformat(),
         "trace_events_path": str(trace_writer.events_path),
+        "bad_case_breakdown": _bad_case_breakdown(all_bad_cases),
         "targets": [summary.model_dump(mode="json") for summary in summaries],
     }
     _write_json(output_dir / "latest_summary.json", summary_payload)

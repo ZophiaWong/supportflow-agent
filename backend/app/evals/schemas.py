@@ -15,6 +15,9 @@ class EvalReferenceOutputs(BaseModel):
     should_retrieve_doc_ids: list[str]
     should_trigger_review: bool
     must_include_citation: bool
+    must_not_claim: list[str] = Field(default_factory=list)
+    expected_risk_flags: list[str] = Field(default_factory=list)
+    expected_status: Literal["done", "waiting_review", "manual_takeover", "failed"] | None = None
 
 
 class EvalExample(BaseModel):
@@ -45,6 +48,9 @@ class EvalMetricResult(BaseModel):
         "retrieval_hit",
         "citation_coverage",
         "review_trigger_accuracy",
+        "unsupported_claim_absent",
+        "expected_status",
+        "expected_risk_flags",
         "final_pass",
     ]
     passed: bool | None
@@ -83,6 +89,9 @@ class EvalRunSummary(BaseModel):
     retrieval_hit_rate: float
     citation_coverage: float
     review_trigger_accuracy: float
+    unsupported_claim_absence: float
+    expected_status_accuracy: float | None
+    expected_risk_flag_accuracy: float | None
     final_pass_rate: float
     bad_case_count: int
     trace_events_path: str

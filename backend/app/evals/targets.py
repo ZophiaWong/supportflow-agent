@@ -1,10 +1,10 @@
 from uuid import uuid4
 
 from app.evals.schemas import EvalExample, EvalTargetOutput
+from app.evals.ticket_fixtures import get_eval_ticket_by_id
 from app.evals.tracing import TraceWriter
 from app.graph.builder import get_support_graph
 from app.services.retrieval import retrieve_knowledge
-from app.services.ticket_repo import get_ticket_by_id
 
 
 def _ticket_query(ticket: dict[str, object]) -> str:
@@ -19,7 +19,7 @@ def _ticket_query(ticket: dict[str, object]) -> str:
 def run_plain_rag_baseline(
     example: EvalExample, trace_writer: TraceWriter | None = None
 ) -> EvalTargetOutput:
-    ticket = get_ticket_by_id(example.inputs.ticket_id)
+    ticket = get_eval_ticket_by_id(example.inputs.ticket_id)
     if trace_writer is not None:
         trace_writer.emit(
             target="plain_rag_baseline",
@@ -33,6 +33,7 @@ def run_plain_rag_baseline(
     hits = retrieve_knowledge(_ticket_query(ticket))
     retrieved_doc_ids = [hit.doc_id for hit in hits]
     citations = retrieved_doc_ids[:1]
+    trace_url = None
     lead_title = hits[0].title if hits else "the available support guidance"
     answer = (
         f"Hi {ticket.get('customer_name', 'there')},\n\n"
@@ -43,7 +44,7 @@ def run_plain_rag_baseline(
     )
 
     if trace_writer is not None:
-        trace_writer.emit(
+        trace_url = trace_writer.emit(
             target="plain_rag_baseline",
             example_id=example.id,
             ticket_id=example.inputs.ticket_id,
@@ -67,6 +68,7 @@ def run_plain_rag_baseline(
         citations=citations,
         answer=answer,
         review_required=False,
+        trace_url=trace_url,
         metadata={"retrieval_query": _ticket_query(ticket)},
     )
 
@@ -79,6 +81,7 @@ def run_graph_v1(example: EvalExample, trace_writer: TraceWriter | None = None) 
             "ticket_id": example.inputs.ticket_id,
             "thread_id": thread_id,
             "status": "queued",
+            "ticket_source": "eval",
         },
         config={"configurable": {"thread_id": thread_id}},
     )
@@ -106,9 +109,10 @@ def run_graph_v1(example: EvalExample, trace_writer: TraceWriter | None = None) 
         else getattr(draft, "answer", None)
     )
     retrieved_doc_ids = [hit.doc_id for hit in retrieved_chunks]
+    trace_url = None
 
     if trace_writer is not None:
-        trace_writer.emit(
+        trace_url = trace_writer.emit(
             target="graph_v1",
             example_id=example.id,
             ticket_id=example.inputs.ticket_id,
@@ -135,6 +139,7 @@ def run_graph_v1(example: EvalExample, trace_writer: TraceWriter | None = None) 
         citations=citations,
         answer=answer,
         review_required=review_required,
+        trace_url=trace_url,
         metadata={
             "thread_id": thread_id,
             "risk_flags": getattr(risk_assessment, "risk_flags", []),

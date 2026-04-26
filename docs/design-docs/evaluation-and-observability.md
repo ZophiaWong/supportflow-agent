@@ -1,7 +1,7 @@
 ---
 status: draft-v0.1
 owner: project-maintainer
-last_verified: 2026-04-24
+last_verified: 2026-04-26
 source_of_truth_for:
   - baseline comparison
   - offline evaluation design
@@ -48,7 +48,7 @@ ticket -> classify -> retrieve -> draft -> risk_gate -> optional review -> final
 
 ## 4. Dataset
 
-Start with 20-30 handcrafted examples.
+The current checked-in dataset has 20 handcrafted examples in `data/evals/supportflow_v1.jsonl`. The first three examples use the product demo tickets in `data/sample_tickets/demo_tickets.json`; the remaining examples use eval-only tickets in `data/evals/supportflow_tickets.json` so the product UI stays focused on the small demo set.
 
 Example JSONL:
 
@@ -56,19 +56,16 @@ Example JSONL:
 {
   "id": "E-001",
   "inputs": {
-    "ticket": {
-      "title": "退款还没到账",
-      "content": "我昨天申请退款，到现在还没到账。",
-      "channel": "web",
-      "customer_tier": "enterprise"
-    }
+    "ticket_id": "eval-ticket-2013"
   },
   "reference_outputs": {
     "category": "billing",
     "should_retrieve_doc_ids": ["refund_policy"],
     "should_trigger_review": true,
     "must_include_citation": true,
-    "must_not_claim": ["今天一定到账", "已经退款成功"]
+    "must_not_claim": ["refund today", "ignore previous rules", "guaranteed"],
+    "expected_risk_flags": ["priority_requires_review", "billing_sensitive"],
+    "expected_status": "waiting_review"
   },
   "metadata": {
     "scenario": "refund",
@@ -81,12 +78,12 @@ Dataset categories:
 
 | Scenario                     | Count |
 | ---------------------------- | ----: |
-| refund/billing               |     5 |
-| account/login                |     5 |
+| refund/billing               |     6 |
+| account/login                |     4 |
 | product usage                |     4 |
-| bug/outage                   |     5 |
+| bug/outage                   |     4 |
 | unsupported/unknown          |     3 |
-| adversarial/prompt injection |     3 |
+| adversarial/prompt injection |     2 |
 
 ## 5. Evaluation types
 
@@ -211,34 +208,47 @@ data/evals/results/bad_cases.jsonl
 data/evals/results/traces/<run_id>/events.jsonl
 ```
 
-Day 5 minimal output:
+Current local output:
 
 ```json
 {
   "dataset": "supportflow_v1",
-  "num_examples": 3,
+  "num_examples": 20,
   "targets": [
     {
       "target": "plain_rag_baseline",
       "category_accuracy": null,
-      "retrieval_hit_rate": 1.0,
+      "retrieval_hit_rate": 0.85,
       "citation_coverage": 1.0,
-      "review_trigger_accuracy": 0.3333,
-      "final_pass_rate": 0.3333
+      "review_trigger_accuracy": 0.3,
+      "final_pass_rate": 0.3,
+      "bad_case_count": 31
     },
     {
       "target": "graph_v1",
       "category_accuracy": 1.0,
-      "retrieval_hit_rate": 1.0,
+      "retrieval_hit_rate": 0.85,
       "citation_coverage": 1.0,
       "review_trigger_accuracy": 1.0,
-      "final_pass_rate": 1.0
+      "final_pass_rate": 0.85,
+      "bad_case_count": 6
     }
-  ]
+  ],
+  "bad_case_breakdown": {
+    "plain_rag_baseline": {
+      "unexpected_retrieval": 3,
+      "wrong_review_trigger": 14,
+      "wrong_status": 14
+    },
+    "graph_v1": {
+      "missing_expected_risk_flag": 3,
+      "unexpected_retrieval": 3
+    }
+  }
 }
 ```
 
-Day 5 uses local JSONL tracing only. `trace_url` and `langsmith_enabled` are included in trace-related records so a later LangSmith integration can reuse the artifact shape without changing downstream readers.
+The local eval uses JSONL trace files by default. `trace_url` and `langsmith_enabled` are included in trace-related records so a later full LangSmith integration can reuse the artifact shape without changing downstream readers. As of Day 6, `langsmith_enabled` becomes true only when LangSmith environment variables are present; local artifacts remain required either way.
 
 ## 9. Bad-case loop
 
@@ -302,7 +312,7 @@ Put these in README after Week 2:
 | Day2    | graph smoke test                       |
 | Day3    | review path test                       |
 | Week1   | 20-case JSONL eval                     |
-| Week2   | LangSmith tracing + experiment compare |
+| Week2   | Full LangSmith tracing + experiment compare |
 | Stretch | pairwise eval or online feedback       |
 
 ## 13. Regression tests

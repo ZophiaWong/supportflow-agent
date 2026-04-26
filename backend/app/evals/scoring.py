@@ -78,7 +78,11 @@ def score_example(example: EvalExample, output: EvalTargetOutput) -> EvalExample
 
     retrieved_expected = set(reference.should_retrieve_doc_ids)
     retrieved_actual = set(output.retrieved_doc_ids)
-    retrieval_passed = bool(retrieved_expected & retrieved_actual)
+    retrieval_passed = (
+        bool(retrieved_expected & retrieved_actual)
+        if retrieved_expected
+        else not retrieved_actual
+    )
     metrics.append(
         _passed_metric(
             "retrieval_hit",
@@ -88,14 +92,23 @@ def score_example(example: EvalExample, output: EvalTargetOutput) -> EvalExample
         )
     )
     if not retrieval_passed:
+        failure_type = (
+            "missing_expected_retrieval"
+            if retrieved_expected
+            else "unexpected_retrieval"
+        )
         bad_cases.append(
             _bad_case(
                 example=example,
                 output=output,
-                failure_type="missing_expected_retrieval",
+                failure_type=failure_type,
                 expected={"should_retrieve_doc_ids": reference.should_retrieve_doc_ids},
                 actual={"retrieved_doc_ids": output.retrieved_doc_ids},
-                notes="Target did not retrieve any expected KB document.",
+                notes=(
+                    "Target did not retrieve any expected KB document."
+                    if retrieved_expected
+                    else "Target retrieved KB evidence when the reference expected no evidence."
+                ),
             )
         )
 
@@ -141,11 +154,117 @@ def score_example(example: EvalExample, output: EvalTargetOutput) -> EvalExample
             )
         )
 
+    answer = (output.answer or "").lower()
+    forbidden_claims = [
+        claim
+        for claim in reference.must_not_claim
+        if claim.lower() in answer
+    ]
+    unsupported_claim_passed = not forbidden_claims
+    metrics.append(
+        _passed_metric(
+            "unsupported_claim_absent",
+            {"must_not_claim": reference.must_not_claim},
+            {"forbidden_claims_present": forbidden_claims},
+            unsupported_claim_passed,
+        )
+    )
+    if not unsupported_claim_passed:
+        bad_cases.append(
+            _bad_case(
+                example=example,
+                output=output,
+                failure_type="unsupported_claim_present",
+                expected={"must_not_claim": reference.must_not_claim},
+                actual={"forbidden_claims_present": forbidden_claims},
+                notes="Target answer included a phrase that the reference forbids.",
+            )
+        )
+
+    if reference.expected_status is not None:
+        status_passed = output.status == reference.expected_status
+        metrics.append(
+            _passed_metric(
+                "expected_status",
+                reference.expected_status,
+                output.status,
+                status_passed,
+            )
+        )
+        if not status_passed:
+            bad_cases.append(
+                _bad_case(
+                    example=example,
+                    output=output,
+                    failure_type="wrong_status",
+                    expected={"expected_status": reference.expected_status},
+                    actual={"status": output.status},
+                    notes="Target ended in a different workflow status than expected.",
+                )
+            )
+    else:
+        metrics.append(
+            EvalMetricResult(
+                name="expected_status",
+                passed=None,
+                score=None,
+                expected=None,
+                actual=output.status,
+                notes="Reference does not specify an expected status.",
+            )
+        )
+
+    if reference.expected_risk_flags:
+        actual_risk_flags = output.metadata.get("risk_flags")
+        if isinstance(actual_risk_flags, list):
+            missing_flags = sorted(set(reference.expected_risk_flags) - set(actual_risk_flags))
+            risk_flags_passed = not missing_flags
+            metrics.append(
+                _passed_metric(
+                    "expected_risk_flags",
+                    reference.expected_risk_flags,
+                    actual_risk_flags,
+                    risk_flags_passed,
+                )
+            )
+            if not risk_flags_passed:
+                bad_cases.append(
+                    _bad_case(
+                        example=example,
+                        output=output,
+                        failure_type="missing_expected_risk_flag",
+                        expected={"expected_risk_flags": reference.expected_risk_flags},
+                        actual={"risk_flags": actual_risk_flags, "missing": missing_flags},
+                        notes="Target risk assessment did not include all expected risk flags.",
+                    )
+                )
+        else:
+            metrics.append(
+                EvalMetricResult(
+                    name="expected_risk_flags",
+                    passed=None,
+                    score=None,
+                    expected=reference.expected_risk_flags,
+                    actual=None,
+                    notes="Target does not expose risk flags.",
+                )
+            )
+    else:
+        metrics.append(
+            EvalMetricResult(
+                name="expected_risk_flags",
+                passed=None,
+                score=None,
+                expected=[],
+                actual=output.metadata.get("risk_flags"),
+                notes="Reference does not specify expected risk flags.",
+            )
+        )
+
     primitive_passes = [
         metric.passed
         for metric in metrics
-        if metric.name
-        in {"category_accuracy", "retrieval_hit", "citation_coverage", "review_trigger_accuracy"}
+        if metric.name != "final_pass"
         and metric.passed is not None
     ]
     final_pass = all(primitive_passes)
@@ -182,6 +301,18 @@ def _rate(results: list[EvalExampleResult], metric_name: str) -> float:
     return round(sum(metric_values) / len(metric_values), 4)
 
 
+def _optional_rate(results: list[EvalExampleResult], metric_name: str) -> float | None:
+    metric_values = [
+        metric.score
+        for result in results
+        for metric in result.metrics
+        if metric.name == metric_name and metric.score is not None
+    ]
+    if not metric_values:
+        return None
+    return round(sum(metric_values) / len(metric_values), 4)
+
+
 def summarize_results(
     *,
     run_id: str,
@@ -202,6 +333,9 @@ def summarize_results(
         retrieval_hit_rate=_rate(results, "retrieval_hit"),
         citation_coverage=_rate(results, "citation_coverage"),
         review_trigger_accuracy=_rate(results, "review_trigger_accuracy"),
+        unsupported_claim_absence=_rate(results, "unsupported_claim_absent"),
+        expected_status_accuracy=_optional_rate(results, "expected_status"),
+        expected_risk_flag_accuracy=_optional_rate(results, "expected_risk_flags"),
         final_pass_rate=_rate(results, "final_pass"),
         bad_case_count=bad_case_count,
         trace_events_path=trace_events_path,
