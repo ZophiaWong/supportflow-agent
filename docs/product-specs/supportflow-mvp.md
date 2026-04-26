@@ -31,3 +31,13 @@ draft replies, and send risky cases to human review.
 - one ticket can enter the workflow
 - system can show a draft reply
 - risky cases can be reviewed by a human
+
+## Current acceptance evidence
+
+Verified on 2026-04-26.
+
+- One ticket can enter the workflow: `POST /api/v1/tickets/ticket-1003/run` completed through the backend HTTP server with status `done` and final disposition `auto_finalized`.
+- System can show a draft reply: backend and frontend tests passed, and the low-risk workflow response included a non-empty `draft`, retrieved KB evidence, citations, and a final response.
+- Risky cases can be reviewed by a human: `ticket-1001` entered `waiting_review`, appeared in the pending review flow, and resumed through approve to status `done`; `ticket-1002` resumed through reject to status `manual_takeover`.
+- Automated acceptance passed: backend tests `28 passed`, frontend tests `9 passed`, frontend production build succeeded, and offline eval reported `graph_v1` final pass rate `1.00` with `0` bad cases.
+- Runtime route smoke passed: the backend served `/healthz`, tickets, run, pending review, resume, state, and timeline endpoints; the Vite frontend served `/tickets` and `/reviews`.

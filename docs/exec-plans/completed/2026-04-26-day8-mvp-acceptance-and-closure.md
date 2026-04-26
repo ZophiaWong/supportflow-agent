@@ -13,11 +13,11 @@ After this work, a reader should be able to open the repository, run the documen
 ## Progress
 
 - [x] (2026-04-26 14:10Z) Created this active Day 8 ExecPlan after Day 7 retrieval precision was completed and moved to `docs/exec-plans/completed/`.
-- [ ] Run the backend, frontend, build, and offline eval acceptance commands.
-- [ ] Perform the manual MVP smoke test through `/tickets` and `/reviews`.
-- [ ] Record acceptance evidence in `docs/product-specs/supportflow-mvp.md`.
-- [ ] Update README or design docs only if observed command output or behavior differs from current docs.
-- [ ] Archive this ExecPlan to `docs/exec-plans/completed/` after all acceptance criteria pass.
+- [x] (2026-04-26 15:09Z) Ran the backend, frontend, build, and offline eval acceptance commands.
+- [x] (2026-04-26 15:12Z) Performed the MVP smoke test through backend HTTP routes and confirmed Vite served `/tickets` and `/reviews`.
+- [x] (2026-04-26 15:13Z) Recorded acceptance evidence in `docs/product-specs/supportflow-mvp.md`.
+- [x] (2026-04-26 15:13Z) Confirmed README and design docs did not need behavior updates beyond existing Day 7 output.
+- [x] (2026-04-26 15:14Z) Archived this ExecPlan to `docs/exec-plans/completed/` after all acceptance criteria passed.
 
 ## Surprises & Discoveries
 
@@ -33,6 +33,15 @@ After this work, a reader should be able to open the repository, run the documen
 - Observation: Current automated coverage already maps to the core MVP flows.
   Evidence: `backend/tests/test_api.py` covers low-risk finalization, risky waiting-review runs, pending review listing, resume approve, and reject-to-manual-takeover. `frontend/src/pages/TicketsPage.test.tsx` covers ticket loading, running workflow, waiting-review UI, timeline/state display, and reload restoration. `frontend/src/pages/ReviewQueuePage.test.tsx` covers loading pending reviews and submitting a reviewer decision.
 
+- Observation: The default uv cache path is not writable in this environment.
+  Evidence: Starting Uvicorn with `uv run uvicorn app.main:app --host 127.0.0.1 --port 8000` failed with `Could not create temporary file ... Read-only file system`; rerunning with `uv run --cache-dir /tmp/uv-cache uvicorn ...` succeeded.
+
+- Observation: Starting Vite required elevated sandbox permissions, and port 5173 was already in use.
+  Evidence: `npm run dev -- --host 127.0.0.1 --port 5173` first failed with `listen EPERM`; rerunning with approval succeeded on `http://127.0.0.1:5174/`.
+
+- Observation: Local HTTP clients inside the sandbox may use blocked networking or proxy behavior unless explicitly bypassed.
+  Evidence: a Python `urllib` smoke request first failed with `Operation not permitted`, then with `HTTP Error 502`; `curl --noproxy '*'` and a `ProxyHandler({})` smoke client worked with local-network approval.
+
 ## Decision Log
 
 - Decision: Use one Day 8 ExecPlan rather than splitting the work.
@@ -47,9 +56,17 @@ After this work, a reader should be able to open the repository, run the documen
   Rationale: `AGENTS.md` says not to put large design docs there, while the product spec is the right source for MVP acceptance state.
   Date/Author: 2026-04-26 / Codex
 
+- Decision: Treat backend HTTP smoke plus frontend route serving/tests as the executable smoke evidence.
+  Rationale: The shell environment can start servers and hit local HTTP routes, but it does not provide a browser automation tool in this repo. Frontend page tests cover `/tickets` and `/reviews` interactions, while backend HTTP smoke proves the runtime workflow transitions.
+  Date/Author: 2026-04-26 / Codex
+
 ## Outcomes & Retrospective
 
-Not started. Fill this section after the acceptance commands and manual smoke test have run. Include the final command results, any failed checks and fixes, whether the MVP spec is satisfied, and the recommended first post-MVP plan.
+Day 8 accepted the MVP. Backend tests passed with `28 passed`, frontend tests passed with `9 passed`, frontend production build succeeded, and the offline eval reported `graph_v1` final pass rate `1.00` with `0` bad cases. Runtime HTTP smoke confirmed the backend can serve health, tickets, low-risk run, risky pending review, approve resume, run state, run timeline, and reject-to-manual-takeover flows. The Vite dev server served both `/tickets` and `/reviews`.
+
+`docs/product-specs/supportflow-mvp.md` now records current acceptance evidence for all three MVP acceptance criteria. No public API, schema, graph state, or package dependency changes were needed for Day 8.
+
+The recommended first post-MVP plan is durable state for runs, reviews, and checkpoints. The README still documents that pending reviews and LangGraph checkpoints are in memory only, and this is the most important product limitation after MVP acceptance.
 
 ## Context and Orientation
 
@@ -114,6 +131,11 @@ Expected result:
     collected 28 items
     28 passed
 
+Observed result:
+
+    collected 28 items
+    28 passed in 0.56s
+
 Run the offline eval:
 
     cd backend
@@ -127,6 +149,14 @@ Expected result:
     wrote data/evals/results/bad_cases.jsonl
     wrote data/evals/results/traces/<run_id>/events.jsonl
 
+Observed result:
+
+    target=plain_rag_baseline examples=20 category_accuracy=null retrieval_hit_rate=1.00 citation_coverage=1.00 review_trigger_accuracy=0.30 final_pass_rate=0.30 bad_cases=28
+    target=graph_v1 examples=20 category_accuracy=1.00 retrieval_hit_rate=1.00 citation_coverage=1.00 review_trigger_accuracy=1.00 final_pass_rate=1.00 bad_cases=0
+    wrote data/evals/results/latest_summary.json
+    wrote data/evals/results/bad_cases.jsonl
+    wrote data/evals/results/traces/eval-20260426T150859Z-456e4efa/events.jsonl
+
 Run frontend tests:
 
     cd frontend
@@ -137,6 +167,11 @@ Expected result:
     Test Files ... passed
     Tests ... passed
 
+Observed result:
+
+    Test Files  4 passed (4)
+    Tests  9 passed (9)
+
 Run the frontend production build:
 
     cd frontend
@@ -146,6 +181,12 @@ Expected result:
 
     tsc -b && vite build
     built in ...
+
+Observed result:
+
+    vite v5.4.21 building for production...
+    41 modules transformed.
+    built in 491ms
 
 Start the backend for manual smoke testing:
 
@@ -168,6 +209,30 @@ Manual smoke checklist:
 - Submit an approve decision and confirm the review completes with final disposition `approved`.
 - Run another risky ticket and reject it; confirm the resulting backend/UI state is `manual_takeover`.
 - Refresh `/tickets` and confirm the latest run state and timeline reload while the backend process is still running.
+
+Observed smoke result:
+
+    low_risk ticket-ticket-1003-181f76ce done auto_finalized
+    approved_review ticket-ticket-1001-374b1aa5 done approved
+    rejected_review ticket-ticket-1002-b2a2b878 manual_takeover
+    pending_reviews_after 0
+
+Backend HTTP runtime smoke:
+
+    health ok
+    tickets 3
+    low_risk done auto_finalized
+    risky waiting_review pending 1
+    approved done approved
+    timeline_last run_completed
+    rejected ticket-ticket-1002-9539e7fb manual_takeover
+
+Frontend runtime route smoke:
+
+    curl --noproxy '*' http://127.0.0.1:5174/tickets
+    curl --noproxy '*' http://127.0.0.1:5174/reviews
+
+Both frontend routes returned the Vite app shell with title `supportflow-agent`.
 
 Record acceptance evidence in `docs/product-specs/supportflow-mvp.md` using this shape:
 
