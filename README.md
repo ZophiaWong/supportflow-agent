@@ -2,15 +2,17 @@
 
 supportflow-agent is a workflow-first AI support app for ticket triage, knowledge retrieval, response drafting, and human review for risky cases.
 
-The current repository state is the Day 3 MVP slice:
+The current repository state is the Day 4 MVP slice:
 
 - FastAPI backend with `GET /healthz`
 - FastAPI ticket list endpoint at `GET /api/v1/tickets`
 - FastAPI workflow run endpoint at `POST /api/v1/tickets/{ticket_id}/run`
+- FastAPI run state endpoint at `GET /api/v1/runs/{thread_id}/state`
+- FastAPI run timeline endpoint at `GET /api/v1/runs/{thread_id}/timeline`
 - FastAPI pending review endpoint at `GET /api/v1/reviews/pending`
 - FastAPI resume endpoint at `POST /api/v1/runs/{thread_id}/resume`
-- LangGraph workflow with risk gating and human-in-the-loop resume
-- React ticket inbox at `/tickets`
+- LangGraph workflow with risk gating, human-in-the-loop resume, and inspectable run state
+- React ticket inbox at `/tickets` with run timeline and state inspection
 - React review queue at `/reviews`
 - Local Markdown knowledge base used by the retriever
 
@@ -36,6 +38,10 @@ The UI then shows:
 - risk flags and risk-gate reason
 - final response for low-risk tickets
 - waiting-review state for risky tickets
+- current run state for the active `thread_id`
+- timeline of major workflow milestones
+
+The `/tickets` page stores the latest run `thread_id` in local storage and reloads its state and timeline after a page refresh while the backend process is still alive.
 
 For risky tickets, open `/reviews` to:
 
@@ -61,6 +67,8 @@ Key backend files:
 - `backend/app/main.py`: FastAPI app and router wiring
 - `backend/app/api/v1/tickets.py`: ticket list endpoint
 - `backend/app/api/v1/runs.py`: workflow run and resume endpoints
+- `backend/app/services/run_event_store.py`: in-memory run timeline storage
+- `backend/app/services/run_state_service.py`: read-only run state projection from LangGraph checkpoints
 - `backend/app/api/v1/reviews.py`: pending review list endpoint
 - `backend/app/services/ticket_repo.py`: demo ticket loading
 - `backend/app/services/retrieval.py`: lexical KB retrieval
@@ -75,6 +83,8 @@ Key backend files:
 Key frontend files:
 
 - `frontend/src/pages/TicketsPage.tsx`: main inbox page
+- `frontend/src/components/RunStatePanel.tsx`: current run-state display
+- `frontend/src/components/WorkflowTimeline.tsx`: major-step timeline display
 - `frontend/src/pages/ReviewQueuePage.tsx`: review queue page
 - `frontend/src/components/TicketList.tsx`: selectable ticket list
 - `frontend/src/components/TicketDetail.tsx`: selected ticket detail
@@ -97,6 +107,8 @@ Available routes:
 - `GET /healthz`
 - `GET /api/v1/tickets`
 - `POST /api/v1/tickets/{ticket_id}/run`
+- `GET /api/v1/runs/{thread_id}/state`
+- `GET /api/v1/runs/{thread_id}/timeline`
 - `GET /api/v1/reviews/pending`
 - `POST /api/v1/runs/{thread_id}/resume`
 
@@ -135,8 +147,8 @@ The frontend starts on:
 
 Use the shipped demo tickets to confirm the main behaviors:
 
-- `ticket-1003` should auto-finalize on `/tickets` and show a `Final response`.
-- `ticket-1001` should pause in `waiting_review`, show risk-gate details, and appear on `/reviews`.
+- `ticket-1003` should auto-finalize on `/tickets`, show a `Final response`, and show a completed timeline.
+- `ticket-1001` should pause in `waiting_review`, show risk-gate details and an interrupt event, and appear on `/reviews`.
 - Approving or editing a pending review should finish the run and show a completed result.
 - Rejecting a pending review should end in `manual_takeover` with no final AI response.
 

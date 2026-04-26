@@ -1,7 +1,7 @@
 ---
 status: draft-v0.1
 owner: project-maintainer
-last_verified: 2026-04-24
+last_verified: 2026-04-25
 source_of_truth_for:
   - frontend screens
   - frontend state model
@@ -62,19 +62,21 @@ Purpose:
 - select one ticket
 - run workflow
 - show workflow result
+- inspect the current run state and timeline for the latest `thread_id`
 
 Layout:
 
 ```text
-┌────────────────────────────────────────────────────────────────┐
-│ Header: SupportFlow Agent                                      │
-├───────────────┬─────────────────────────────┬──────────────────┤
-│ Ticket List   │ Ticket Detail + Actions     │ Workflow Result  │
-│               │                             │                  │
-│ T-1001        │ title/content/customer tier │ classification   │
-│ T-1002        │ [Run workflow]              │ evidence         │
-│ T-1003        │                             │ draft            │
-└───────────────┴─────────────────────────────┴──────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Header: SupportFlow Agent                                                   │
+├───────────────┬─────────────────────────────┬───────────────────────────────┤
+│ Ticket List   │ Ticket Detail + Result      │ Run State + Workflow Timeline │
+│               │                             │                               │
+│ ticket-1001   │ title/content/customer tier │ status                        │
+│ ticket-1002   │ [Run workflow]              │ current_node                  │
+│ ticket-1003   │ evidence/draft/final reply  │ run_started                   │
+│               │                             │ interrupt_created/done        │
+└───────────────┴─────────────────────────────┴───────────────────────────────┘
 ```
 
 Minimum components:
@@ -83,7 +85,8 @@ Minimum components:
 TicketList
 TicketDetail
 WorkflowResultPanel
-EvidencePanel
+RunStatePanel
+WorkflowTimeline
 ```
 
 ### 3.2 Review queue page
@@ -159,11 +162,14 @@ Week 2 only. Do not build before eval script exists.
 
 ```ts
 type TicketsPageState = {
-  tickets: TicketItem[];
+  tickets: Ticket[];
   selectedTicketId: string | null;
-  selectedTicket: TicketItem | null;
   activeRun: RunTicketResponse | null;
+  activeThreadId: string | null;
+  runState: RunStateResponse | null;
+  timeline: RunTimelineEvent[];
   isRunning: boolean;
+  isInspectingRun: boolean;
   error: string | null;
 };
 ```
@@ -185,8 +191,9 @@ type RunStatus =
 ```ts
 const canRun = selectedTicket != null && !isRunning;
 const showReviewHint = activeRun?.status === "waiting_review";
-const showFinalReply = activeRun?.final_reply != null;
+const showFinalReply = activeRun?.final_response != null;
 const showDraft = activeRun?.draft != null;
+const shouldPoll = runState?.status === "running" || runState?.status === "waiting_review";
 ```
 
 ## 5. API integration
@@ -221,6 +228,12 @@ POST / api / v1 / runs / { thread_id } / resume;
 GET / api / v1 / runs / { thread_id } / state;
 ```
 
+### Get run timeline
+
+```ts
+GET / api / v1 / runs / { thread_id } / timeline;
+```
+
 ## 6. Initial implementation order
 
 ### Day2
@@ -243,12 +256,16 @@ Build:
 - `ReviewDecisionCard`
 - resume API integration
 
-### Week 1
+### Day4
 
 Build:
 
-- simple run timeline
-- state debug drawer
+- `RunStatePanel`
+- `WorkflowTimeline`
+- `fetchRunState`
+- `fetchRunTimeline`
+- polling on `/tickets`
+- last-thread restore after refresh
 
 ### Week 2
 
@@ -270,6 +287,14 @@ Must display:
 - confidence
 - risk flags
 - final status
+- current `thread_id`
+
+Day 4 adds a separate run inspection column that shows:
+
+- run status
+- current node
+- timeline of major-step events
+- refresh-safe inspection of the latest saved `thread_id`
 
 Recommended order:
 
@@ -333,13 +358,14 @@ Do not crash on partial run response.
 MVP:
 
 ```text
-run endpoint returns final state synchronously
+run endpoint returns Day 3 action response synchronously
 ```
 
 Next:
 
 ```text
 poll /runs/{thread_id}/state
+poll /runs/{thread_id}/timeline
 ```
 
 Stretch:
@@ -366,7 +392,8 @@ frontend/src/
     TicketList.tsx
     TicketDetail.tsx
     WorkflowResultPanel.tsx
-    EvidencePanel.tsx
+    RunStatePanel.tsx
+    WorkflowTimeline.tsx
     DraftPanel.tsx
     ReviewDecisionCard.tsx
     RiskFlagList.tsx

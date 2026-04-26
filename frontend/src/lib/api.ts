@@ -1,6 +1,8 @@
 import type {
   PendingReviewItem,
+  RunStateResponse,
   RunTicketResponse,
+  RunTimelineResponse,
   SubmitReviewDecisionRequest,
   Ticket,
 } from "./types";
@@ -56,4 +58,24 @@ export async function resumeRun(
   }
 
   return (await response.json()) as RunTicketResponse;
+}
+
+export async function fetchRunState(threadId: string): Promise<RunStateResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/runs/${threadId}/state`);
+
+  if (!response.ok) {
+    throw new Error(`Unable to load run state (${response.status})`);
+  }
+
+  return (await response.json()) as RunStateResponse;
+}
+
+export async function fetchRunTimeline(threadId: string): Promise<RunTimelineResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/runs/${threadId}/timeline`);
+
+  if (!response.ok) {
+    throw new Error(`Unable to load run timeline (${response.status})`);
+  }
+
+  return (await response.json()) as RunTimelineResponse;
 }

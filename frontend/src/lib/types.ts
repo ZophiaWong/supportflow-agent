@@ -4,6 +4,17 @@ export type WorkflowCategory = "billing" | "account" | "product" | "bug" | "othe
 export type WorkflowPriority = "P0" | "P1" | "P2" | "P3";
 export type WorkflowStatus = "done" | "failed" | "running" | "waiting_review" | "manual_takeover";
 export type ReviewDecision = "approve" | "edit" | "reject";
+export type RunTimelineEventType =
+  | "run_started"
+  | "classify_completed"
+  | "retrieve_completed"
+  | "draft_completed"
+  | "risk_gate_completed"
+  | "interrupt_created"
+  | "review_submitted"
+  | "run_resumed"
+  | "run_completed"
+  | "run_failed";
 
 export interface Ticket {
   id: string;
@@ -72,4 +83,36 @@ export interface RunTicketResponse {
   risk_assessment?: RiskAssessment | null;
   pending_review?: PendingReviewItem | null;
   final_response?: FinalResponse | null;
+}
+
+export interface RunTimelineEvent {
+  event_id: string;
+  thread_id: string;
+  ticket_id: string;
+  event_type: RunTimelineEventType;
+  node_name?: string | null;
+  status: WorkflowStatus;
+  message?: string | null;
+  created_at: string;
+  payload?: Record<string, unknown> | null;
+}
+
+export interface RunTimelineResponse {
+  thread_id: string;
+  events: RunTimelineEvent[];
+}
+
+export interface RunStateResponse {
+  thread_id: string;
+  ticket_id: string;
+  status: WorkflowStatus;
+  current_node?: string | null;
+  classification?: TicketClassification | null;
+  retrieved_chunks: KBHit[];
+  draft?: DraftReply | null;
+  risk_assessment?: RiskAssessment | null;
+  review_decision?: SubmitReviewDecisionRequest | null;
+  final_response?: FinalResponse | null;
+  pending_review?: PendingReviewItem | null;
+  error?: string | null;
 }

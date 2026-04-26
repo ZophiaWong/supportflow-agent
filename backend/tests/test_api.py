@@ -2,15 +2,17 @@ from fastapi import HTTPException
 
 from app.api.v1.health import healthz
 from app.api.v1.reviews import list_pending_reviews
-from app.api.v1.runs import resume_run, run_ticket
+from app.api.v1.runs import read_run_state, read_run_timeline, resume_run, run_ticket
 from app.api.v1.tickets import list_tickets
 from app.main import app
 from app.schemas.graph import SubmitReviewDecisionRequest
 from app.services.pending_review_store import get_pending_review_store
+from app.services.run_event_store import get_run_event_store
 
 
 def setup_function() -> None:
     get_pending_review_store().clear()
+    get_run_event_store().clear()
 
 
 def test_healthz_returns_ok() -> None:
@@ -32,6 +34,8 @@ def test_app_registers_expected_routes() -> None:
     assert "/api/v1/tickets" in route_paths
     assert "/api/v1/tickets/{ticket_id}/run" in route_paths
     assert "/api/v1/runs/{thread_id}/resume" in route_paths
+    assert "/api/v1/runs/{thread_id}/state" in route_paths
+    assert "/api/v1/runs/{thread_id}/timeline" in route_paths
     assert "/api/v1/reviews/pending" in route_paths
 
 
@@ -67,6 +71,35 @@ def test_pending_review_endpoint_lists_waiting_items() -> None:
     assert payload[0].thread_id == pending.thread_id
 
 
+def test_run_state_endpoint_reads_waiting_review_state() -> None:
+    pending = run_ticket("ticket-1001")
+
+    payload = read_run_state(pending.thread_id)
+
+    assert payload.thread_id == pending.thread_id
+    assert payload.status == "waiting_review"
+    assert payload.current_node == "human_review_interrupt"
+    assert payload.pending_review is not None
+    assert payload.risk_assessment is not None
+
+
+def test_run_timeline_endpoint_reads_major_events() -> None:
+    completed = run_ticket("ticket-1003")
+
+    payload = read_run_timeline(completed.thread_id)
+
+    assert payload.thread_id == completed.thread_id
+    assert [event.event_type for event in payload.events] == [
+        "run_started",
+        "classify_completed",
+        "retrieve_completed",
+        "draft_completed",
+        "risk_gate_completed",
+        "run_completed",
+    ]
+    assert payload.events[-1].status == "done"
+
+
 def test_resume_run_approves_pending_review() -> None:
     pending = run_ticket("ticket-1001")
 
@@ -83,6 +116,13 @@ def test_resume_run_approves_pending_review() -> None:
     assert payload.final_response.disposition == "approved"
     assert payload.pending_review is None
     assert list_pending_reviews() == []
+
+    timeline = read_run_timeline(pending.thread_id)
+    assert [event.event_type for event in timeline.events[-3:]] == [
+        "review_submitted",
+        "run_resumed",
+        "run_completed",
+    ]
 
 
 def test_resume_run_rejects_to_manual_takeover() -> None:
@@ -111,6 +151,26 @@ def test_resume_run_returns_404_for_unknown_thread() -> None:
         assert exc.detail == "Pending review not found"
     else:
         raise AssertionError("Expected HTTPException for missing pending review")
+
+
+def test_read_run_state_returns_404_for_unknown_thread() -> None:
+    try:
+        read_run_state("ticket-does-not-exist")
+    except HTTPException as exc:
+        assert exc.status_code == 404
+        assert exc.detail == "Run state not found"
+    else:
+        raise AssertionError("Expected HTTPException for missing run state")
+
+
+def test_read_run_timeline_returns_404_for_unknown_thread() -> None:
+    try:
+        read_run_timeline("ticket-does-not-exist")
+    except HTTPException as exc:
+        assert exc.status_code == 404
+        assert exc.detail == "Run timeline not found"
+    else:
+        raise AssertionError("Expected HTTPException for missing run timeline")
 
 
 def test_run_ticket_returns_404_for_unknown_ticket() -> None:
