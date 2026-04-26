@@ -10,3 +10,6 @@ frontend/coverage/
 
 # Local environment files
 .env
+
+# Generated offline evaluation outputs
+data/evals/results/

@@ -208,20 +208,37 @@ Outputs:
 ```text
 data/evals/results/latest_summary.json
 data/evals/results/bad_cases.jsonl
+data/evals/results/traces/<run_id>/events.jsonl
 ```
 
-Minimal output:
+Day 5 minimal output:
 
 ```json
 {
-  "target": "graph_v1",
-  "num_examples": 25,
-  "category_accuracy": 0.84,
-  "citation_coverage": 0.92,
-  "review_trigger_accuracy": 0.8,
-  "final_pass_rate": 0.76
+  "dataset": "supportflow_v1",
+  "num_examples": 3,
+  "targets": [
+    {
+      "target": "plain_rag_baseline",
+      "category_accuracy": null,
+      "retrieval_hit_rate": 1.0,
+      "citation_coverage": 1.0,
+      "review_trigger_accuracy": 0.3333,
+      "final_pass_rate": 0.3333
+    },
+    {
+      "target": "graph_v1",
+      "category_accuracy": 1.0,
+      "retrieval_hit_rate": 1.0,
+      "citation_coverage": 1.0,
+      "review_trigger_accuracy": 1.0,
+      "final_pass_rate": 1.0
+    }
+  ]
 }
 ```
+
+Day 5 uses local JSONL tracing only. `trace_url` and `langsmith_enabled` are included in trace-related records so a later LangSmith integration can reuse the artifact shape without changing downstream readers.
 
 ## 9. Bad-case loop
 

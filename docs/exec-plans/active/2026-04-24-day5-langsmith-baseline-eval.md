@@ -13,12 +13,12 @@ The goal is not to build a perfect evaluator or production analytics system. The
 ## Progress
 
 - [x] (2026-04-26 13:05Z) Replaced the Day 5 goal stub with a `docs/PLANS.md`-compliant ExecPlan.
-- [ ] Add the fixed three-case eval dataset at `data/evals/supportflow_v1.jsonl`.
-- [ ] Add backend eval schemas, target runners, deterministic scorers, local tracing, and result writers.
-- [ ] Add the CLI script at `backend/scripts/run_offline_eval.py`.
-- [ ] Add backend tests for dataset loading, scoring, target comparison, and artifact writing.
-- [ ] Update README and relevant design docs with the offline eval command and expected output.
-- [ ] Run backend tests and the offline eval command, then record evidence in this plan.
+- [x] (2026-04-26 12:02Z) Added the fixed three-case eval dataset at `data/evals/supportflow_v1.jsonl`.
+- [x] (2026-04-26 12:02Z) Added backend eval schemas, target runners, deterministic scorers, local tracing, and result writers.
+- [x] (2026-04-26 12:02Z) Added the CLI script at `backend/scripts/run_offline_eval.py`.
+- [x] (2026-04-26 12:02Z) Added backend tests for dataset loading, scoring, target comparison, and artifact writing.
+- [x] (2026-04-26 12:05Z) Updated README and the evaluation design doc with the offline eval command and expected output.
+- [x] (2026-04-26 12:06Z) Ran backend tests and the offline eval command successfully through the backend virtualenv.
 
 ## Surprises & Discoveries
 
@@ -33,6 +33,9 @@ The goal is not to build a perfect evaluator or production analytics system. The
 
 - Observation: The three current demo tickets support the planned fixed dataset expectations.
   Evidence: local graph inspection showed `ticket-1001` and `ticket-1002` interrupt with `review_required=True`, while `ticket-1003` finalizes with `review_required=False`; baseline retrieval finds the expected lead doc for each ticket.
+
+- Observation: The Day 5 eval skeleton produces the intended workflow contrast on the fixed dataset.
+  Evidence: `plain_rag_baseline` scored `review_trigger_accuracy=0.33` and `final_pass_rate=0.33`, while `graph_v1` scored `review_trigger_accuracy=1.00` and `final_pass_rate=1.00`.
 
 ## Decision Log
 
@@ -62,7 +65,9 @@ The goal is not to build a perfect evaluator or production analytics system. The
 
 ## Outcomes & Retrospective
 
-Not yet implemented. At completion, record whether the CLI compares both targets, whether artifacts were written, which metrics demonstrate the `graph_v1` advantage, and any gaps left for a later larger dataset or real LangSmith experiment.
+Day 5 is implemented as an offline, deterministic evaluation skeleton. The CLI compares `plain_rag_baseline` and `graph_v1`, writes a summary JSON file, writes baseline bad cases for missing review-trigger behavior, and writes local JSONL trace events under a run-scoped trace directory. The comparison demonstrates the intended workflow advantage: `graph_v1` supports classification and risk gating, while the plain baseline does not.
+
+Remaining gaps are intentionally deferred. The dataset has only three examples, tracing is local rather than LangSmith-backed, there is no frontend eval UI, and no LLM judge is used.
 
 ## Context and Orientation
 
@@ -124,13 +129,20 @@ Run the offline eval:
 
 Expected output should resemble this shape, with exact values determined by the implemented scorers:
 
-    target=plain_rag_baseline examples=3 final_pass_rate=... review_trigger_accuracy=... bad_cases=...
-    target=graph_v1 examples=3 final_pass_rate=... review_trigger_accuracy=... bad_cases=...
+    target=plain_rag_baseline examples=3 category_accuracy=null retrieval_hit_rate=1.00 citation_coverage=1.00 review_trigger_accuracy=0.33 final_pass_rate=0.33 bad_cases=2
+    target=graph_v1 examples=3 category_accuracy=1.00 retrieval_hit_rate=1.00 citation_coverage=1.00 review_trigger_accuracy=1.00 final_pass_rate=1.00 bad_cases=0
     wrote data/evals/results/latest_summary.json
     wrote data/evals/results/bad_cases.jsonl
-    wrote data/evals/results/traces/<run_id>/events.jsonl
+    wrote data/evals/results/traces/eval-20260426T120558Z-b96b1c88/events.jsonl
 
-After implementation, update this section with the real transcript and the exact test count.
+Backend validation transcript:
+
+    cd backend
+    source /home/poter/resume-pj/supportflow-agent/backend/.venv/bin/activate
+    pytest
+    ...
+    collected 21 items
+    21 passed in 0.29s
 
 ## Validation and Acceptance
 
@@ -191,7 +203,7 @@ Planned summary shape:
       ]
     }
 
-The numbers above are target expectations, not guaranteed until implementation runs against the actual graph and KB. If actual deterministic behavior differs, update the dataset expectations or document the discovered gap rather than hiding the mismatch.
+The implemented summary matches this shape. The generated `latest_summary.json` also includes `run_id`, `generated_at`, and `trace_events_path` fields so the trace file for the latest run can be found directly.
 
 Planned bad-case shape:
 
@@ -273,3 +285,5 @@ Generated eval result artifacts under `data/evals/results/` are development arti
 Revision note: 2026-04-26. Replaced the Day 5 goal stub with a full living ExecPlan based on the agreed scope: three demo-aligned eval cases, CLI summary and bad cases, required local JSONL tracing, and optional LangSmith integration only when configured.
 
 Revision note: 2026-04-26. Tightened the implementation contract after review: `EvalTargetOutput` fields are now explicit, unsupported baseline category accuracy is `null`, trace files are run-scoped under `traces/<run_id>/events.jsonl`, CLI paths are resolved from the script location, LangSmith imports are deferred to a later change, and graph checkpoint isolation relies on unique eval thread ids.
+
+Revision note: 2026-04-26. Implemented Day 5, updated progress and outcomes, recorded the successful backend test and CLI eval transcripts, and aligned README plus the evaluation design doc with the actual offline eval behavior.

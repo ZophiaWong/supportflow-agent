@@ -2,7 +2,7 @@
 
 supportflow-agent is a workflow-first AI support app for ticket triage, knowledge retrieval, response drafting, and human review for risky cases.
 
-The current repository state is the Day 4 MVP slice:
+The current repository state is the Day 5 MVP slice:
 
 - FastAPI backend with `GET /healthz`
 - FastAPI ticket list endpoint at `GET /api/v1/tickets`
@@ -15,6 +15,7 @@ The current repository state is the Day 4 MVP slice:
 - React ticket inbox at `/tickets` with run timeline and state inspection
 - React review queue at `/reviews`
 - Local Markdown knowledge base used by the retriever
+- Offline eval CLI comparing `plain_rag_baseline` with `graph_v1`
 
 ## What the app does today
 
@@ -57,6 +58,7 @@ backend/                  FastAPI app, LangGraph workflow, tests
 frontend/                 React app, UI tests, Vite build
 data/sample_tickets/      Demo tickets
 data/kb/                  Local Markdown knowledge base
+data/evals/               Fixed offline eval dataset and generated local results
 docs/exec-plans/active/   Active ExecPlans
 ```
 
@@ -77,6 +79,8 @@ Key backend files:
 - `backend/app/graph/nodes/`: graph node implementations
 - `backend/app/graph/builder.py`: compiled LangGraph builder
 - `backend/app/schemas/graph.py`: structured workflow request and response models
+- `backend/app/evals/`: offline eval schemas, target runners, scoring, tracing, and artifact writing
+- `backend/scripts/run_offline_eval.py`: CLI entrypoint for local eval comparison
 
 ## Frontend
 
@@ -153,6 +157,29 @@ Use the shipped demo tickets to confirm the main behaviors:
 - Rejecting a pending review should end in `manual_takeover` with no final AI response.
 
 Each workflow run gets a unique `thread_id`, so rerunning the same ticket starts a fresh review item instead of reusing older graph state.
+
+## Offline evaluation
+
+Run the Day 5 offline eval from the backend directory:
+
+```bash
+cd backend
+uv run --cache-dir /tmp/uv-cache python scripts/run_offline_eval.py
+```
+
+The command reads `data/evals/supportflow_v1.jsonl`, runs both `plain_rag_baseline` and `graph_v1` on the three fixed demo-aligned examples, and writes generated artifacts under `data/evals/results/`.
+
+Expected summary shape:
+
+```text
+target=plain_rag_baseline examples=3 category_accuracy=null retrieval_hit_rate=1.00 citation_coverage=1.00 review_trigger_accuracy=0.33 final_pass_rate=0.33 bad_cases=2
+target=graph_v1 examples=3 category_accuracy=1.00 retrieval_hit_rate=1.00 citation_coverage=1.00 review_trigger_accuracy=1.00 final_pass_rate=1.00 bad_cases=0
+wrote data/evals/results/latest_summary.json
+wrote data/evals/results/bad_cases.jsonl
+wrote data/evals/results/traces/<run_id>/events.jsonl
+```
+
+`data/evals/results/` is ignored by git because it is generated output. Keep `data/evals/supportflow_v1.jsonl` checked in as the fixed source dataset.
 
 ## Tests
 
