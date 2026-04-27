@@ -129,7 +129,7 @@ Every executable action must have an idempotency key derived from stable data su
 
 ## Artifacts and Notes
 
-This plan depends on the durable storage direction from `docs/exec-plans/active/2026-04-27-day09-durable-workflow-state.md`. If Day 9 is not complete when this starts, record the temporary persistence choice in this plan's Decision Log.
+This plan depends on the durable storage direction from `docs/exec-plans/completed/2026-04-27-day09-durable-workflow-state.md`. Day 9 is complete, so new action state should use the durable SQLite storage layer unless implementation discovers a concrete reason not to.
 
 ## Interfaces and Dependencies
 

@@ -2,7 +2,7 @@
 
 supportflow-agent is a workflow-first AI support app for ticket triage, knowledge retrieval, response drafting, and human review for risky cases.
 
-The current repository state is the Day 7 MVP slice:
+The current repository state is the post-MVP durable workflow slice:
 
 - FastAPI backend with `GET /healthz`
 - FastAPI ticket list endpoint at `GET /api/v1/tickets`
@@ -42,7 +42,7 @@ The UI then shows:
 - current run state for the active `thread_id`
 - timeline of major workflow milestones
 
-The `/tickets` page stores the latest run `thread_id` in local storage and reloads its state and timeline after a page refresh while the backend process is still alive.
+The `/tickets` page stores the latest run `thread_id` in local storage and reloads its state and timeline from the backend. Run checkpoints, pending reviews, and timeline events are stored in local SQLite state, so a waiting review can survive a backend restart when the same database path is used.
 
 For risky tickets, open `/reviews` to:
 
@@ -69,12 +69,14 @@ Key backend files:
 - `backend/app/main.py`: FastAPI app and router wiring
 - `backend/app/api/v1/tickets.py`: ticket list endpoint
 - `backend/app/api/v1/runs.py`: workflow run and resume endpoints
-- `backend/app/services/run_event_store.py`: in-memory run timeline storage
+- `backend/app/services/run_event_store.py`: SQLite-backed run timeline storage
 - `backend/app/services/run_state_service.py`: read-only run state projection from LangGraph checkpoints
 - `backend/app/api/v1/reviews.py`: pending review list endpoint
 - `backend/app/services/ticket_repo.py`: demo ticket loading
 - `backend/app/services/retrieval.py`: lexical KB retrieval
-- `backend/app/services/pending_review_store.py`: in-memory pending review storage
+- `backend/app/services/pending_review_store.py`: SQLite-backed pending review storage
+- `backend/app/services/sqlite_checkpointer.py`: local SQLite LangGraph checkpoint saver
+- `backend/app/services/sqlite_store.py`: SQLite path and schema setup
 - `backend/app/graph/state.py`: shared graph state
 - `backend/app/graph/nodes/`: graph node implementations
 - `backend/app/graph/builder.py`: compiled LangGraph builder
@@ -132,7 +134,7 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/runs/<thread_id>/resume \
   -d '{"decision":"approve","reviewer_note":"evidence is sufficient"}'
 ```
 
-Important note: pending reviews and LangGraph checkpoints are in memory only. Restarting the backend clears the review queue and invalidates older `thread_id` values.
+Durable state note: by default, local workflow state is stored in `data/supportflow.sqlite3`. Set `SUPPORTFLOW_DB_PATH=/path/to/supportflow.sqlite3` before starting the backend to choose a different database. Reusing the same database path lets pending reviews, run timelines, and LangGraph checkpoints survive a backend restart. Local SQLite files under `data/*.sqlite3*` are ignored by git.
 
 ## Run the frontend
 

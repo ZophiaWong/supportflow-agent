@@ -1,29 +1,74 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import json
 
 from app.schemas.graph import PendingReviewItem
+from app.services.sqlite_store import connect
 
 
-@dataclass
 class PendingReviewStore:
-    _items: dict[str, PendingReviewItem] = field(default_factory=dict)
-
     def list_items(self) -> list[PendingReviewItem]:
-        return list(self._items.values())
+        with connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT payload_json
+                FROM pending_reviews
+                ORDER BY updated_at, thread_id
+                """
+            ).fetchall()
+        return [
+            PendingReviewItem.model_validate(json.loads(row["payload_json"]))
+            for row in rows
+        ]
 
     def get(self, thread_id: str) -> PendingReviewItem | None:
-        return self._items.get(thread_id)
+        with connect() as connection:
+            row = connection.execute(
+                """
+                SELECT payload_json
+                FROM pending_reviews
+                WHERE thread_id = ?
+                """,
+                (thread_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return PendingReviewItem.model_validate(json.loads(row["payload_json"]))
 
     def upsert(self, item: PendingReviewItem) -> PendingReviewItem:
-        self._items[item.thread_id] = item
+        with connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO pending_reviews (thread_id, ticket_id, payload_json, updated_at)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(thread_id) DO UPDATE SET
+                    ticket_id = excluded.ticket_id,
+                    payload_json = excluded.payload_json,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (
+                    item.thread_id,
+                    item.ticket_id,
+                    json.dumps(item.model_dump(mode="json")),
+                ),
+            )
+            connection.commit()
         return item
 
     def remove(self, thread_id: str) -> PendingReviewItem | None:
-        return self._items.pop(thread_id, None)
+        existing = self.get(thread_id)
+        with connect() as connection:
+            connection.execute(
+                "DELETE FROM pending_reviews WHERE thread_id = ?",
+                (thread_id,),
+            )
+            connection.commit()
+        return existing
 
     def clear(self) -> None:
-        self._items.clear()
+        with connect() as connection:
+            connection.execute("DELETE FROM pending_reviews")
+            connection.commit()
 
 
 _STORE = PendingReviewStore()

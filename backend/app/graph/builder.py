@@ -1,6 +1,5 @@
 from functools import lru_cache
 
-from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 
 from app.graph.nodes.apply_review_decision import apply_review_decision
@@ -13,6 +12,7 @@ from app.graph.nodes.manual_takeover import manual_takeover
 from app.graph.nodes.risk_gate import risk_gate
 from app.graph.nodes.retrieve_knowledge import retrieve_knowledge
 from app.graph.state import TicketState
+from app.services.sqlite_checkpointer import SqliteSaver
 
 
 def _route_after_risk_gate(state: TicketState) -> str:
@@ -51,4 +51,4 @@ def get_support_graph():
     builder.add_edge("finalize_reply", END)
     builder.add_edge("manual_takeover", END)
 
-    return builder.compile(checkpointer=InMemorySaver())
+    return builder.compile(checkpointer=SqliteSaver())

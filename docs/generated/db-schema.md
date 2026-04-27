@@ -17,20 +17,22 @@ source_of_truth_for:
 
 ## 1. Current DB stance
 
-MVP starts with JSON files and in-memory graph checkpointing.
+The MVP started with JSON files and in-memory graph checkpointing. Day 9 introduces local SQLite runtime state for pending reviews, run timeline events, and LangGraph checkpoints.
 
-Database is introduced only when:
+Demo tickets and KB documents still live in checked-in JSON and Markdown files. Local runtime state defaults to `data/supportflow.sqlite3`, or to the path set by `SUPPORTFLOW_DB_PATH`.
 
-- review queue needs persistence
-- run history must survive server restart
-- eval and bad cases need durable records
-- checkpointer moves beyond memory
+Database scope remains intentionally small:
+
+- pending reviews survive backend restart
+- run timelines survive backend restart
+- LangGraph checkpoints survive backend restart and allow review resume
+- eval and bad-case outputs remain generated local artifacts
 
 Recommended path:
 
 ```text
-Day1-Day2: JSON + InMemorySaver
-Day3-Week1: SQLite for tickets/reviews/runs
+Day1-Day8: JSON + InMemorySaver
+Day9: SQLite for pending reviews, run events, and checkpoints
 Week2: Postgres optional
 Stretch: pgvector optional
 ```
