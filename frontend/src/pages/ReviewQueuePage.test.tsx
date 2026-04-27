@@ -1,8 +1,9 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { vi } from "vitest";
 
+import { ReviewDetailPage } from "./ReviewDetailPage";
 import { ReviewQueuePage } from "./ReviewQueuePage";
 
 const { fetchPendingReviewsMock, resumeRunMock } = vi.hoisted(() => ({
@@ -15,60 +16,43 @@ vi.mock("../lib/api", () => ({
   resumeRun: resumeRunMock,
 }));
 
-describe("ReviewQueuePage", () => {
+const pendingReview = {
+  thread_id: "ticket-ticket-1001",
+  ticket_id: "ticket-1001",
+  classification: {
+    category: "billing",
+    priority: "P1",
+    reason: "Ticket mentions billing or duplicate-charge language.",
+  },
+  draft: {
+    answer: "Hi Avery Chen,\n\nWe reviewed your request.",
+    citations: ["refund_policy"],
+    confidence: 0.82,
+  },
+  retrieved_chunks: [
+    {
+      doc_id: "refund_policy",
+      title: "Refund Policy",
+      score: 0.8,
+      snippet: "Refunds are processed after verification.",
+    },
+  ],
+  risk_flags: ["billing_sensitive"],
+  allowed_decisions: ["approve", "edit", "reject"],
+};
+
+describe("Review routes", () => {
   beforeEach(() => {
     fetchPendingReviewsMock.mockReset();
     resumeRunMock.mockReset();
-
-    fetchPendingReviewsMock.mockResolvedValue([
-      {
-        thread_id: "ticket-ticket-1001",
-        ticket_id: "ticket-1001",
-        classification: {
-          category: "billing",
-          priority: "P1",
-          reason: "Ticket mentions billing or duplicate-charge language.",
-        },
-        draft: {
-          answer: "Hi Avery Chen,\n\nWe reviewed your request.",
-          citations: ["refund_policy"],
-          confidence: 0.82,
-        },
-        retrieved_chunks: [
-          {
-            doc_id: "refund_policy",
-            title: "Refund Policy",
-            score: 0.8,
-            snippet: "Refunds are processed after verification.",
-          },
-        ],
-        risk_flags: ["billing_sensitive"],
-        allowed_decisions: ["approve", "edit", "reject"],
-      },
-    ]);
-
+    fetchPendingReviewsMock.mockResolvedValue([pendingReview]);
     resumeRunMock.mockResolvedValue({
       thread_id: "ticket-ticket-1001",
       ticket_id: "ticket-1001",
       status: "done",
-      classification: {
-        category: "billing",
-        priority: "P1",
-        reason: "Ticket mentions billing or duplicate-charge language.",
-      },
-      retrieved_chunks: [
-        {
-          doc_id: "refund_policy",
-          title: "Refund Policy",
-          score: 0.8,
-          snippet: "Refunds are processed after verification.",
-        },
-      ],
-      draft: {
-        answer: "Hi Avery Chen,\n\nWe reviewed your request.",
-        citations: ["refund_policy"],
-        confidence: 0.82,
-      },
+      classification: pendingReview.classification,
+      retrieved_chunks: pendingReview.retrieved_chunks,
+      draft: pendingReview.draft,
       final_response: {
         answer: "Hi Avery Chen,\n\nWe reviewed your request.",
         citations: ["refund_policy"],
@@ -77,12 +61,63 @@ describe("ReviewQueuePage", () => {
     });
   });
 
-  it("loads pending reviews and submits a reviewer decision", async () => {
-    const user = userEvent.setup();
-
+  it("shows a full-width pending review queue with links to review detail routes", async () => {
     render(
       <MemoryRouter>
         <ReviewQueuePage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("table", { name: "Pending reviews" })).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("columnheader", { name: "Risk flags" })).toBeInTheDocument();
+    expect(screen.getByText("ticket-1001")).toBeInTheDocument();
+    expect(screen.getByText("billing sensitive")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open review" })).toHaveAttribute(
+      "href",
+      "/reviews/ticket-ticket-1001",
+    );
+  });
+
+  it("navigates from review queue to a review detail route", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter initialEntries={["/reviews"]}>
+        <Routes>
+          <Route path="/reviews" element={<ReviewQueuePage />} />
+          <Route path="/reviews/:threadId" element={<ReviewDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Open review" })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("link", { name: "Open review" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Submit review" })).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("heading", { name: "ticket-1001" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to review queue" })).toHaveAttribute(
+      "href",
+      "/reviews",
+    );
+  });
+
+  it("submits a reviewer decision from the review detail route", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter initialEntries={["/reviews/ticket-ticket-1001"]}>
+        <Routes>
+          <Route path="/reviews/:threadId" element={<ReviewDetailPage />} />
+        </Routes>
       </MemoryRouter>,
     );
 
@@ -102,5 +137,24 @@ describe("ReviewQueuePage", () => {
 
     expect(screen.getByText("Completed review")).toBeInTheDocument();
     expect(screen.getByText(/Disposition approved/)).toBeInTheDocument();
+  });
+
+  it("shows a recoverable state for a missing review route", async () => {
+    render(
+      <MemoryRouter initialEntries={["/reviews/missing-thread"]}>
+        <Routes>
+          <Route path="/reviews/:threadId" element={<ReviewDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Review not found" })).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("link", { name: "Back to review queue" })).toHaveAttribute(
+      "href",
+      "/reviews",
+    );
   });
 });

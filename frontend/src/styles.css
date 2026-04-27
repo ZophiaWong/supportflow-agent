@@ -4,9 +4,7 @@
   line-height: 1.5;
   font-weight: 400;
   color: #172033;
-  background:
-    radial-gradient(circle at top, rgba(95, 155, 255, 0.2), transparent 35%),
-    linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+  background: #f5f7fb;
 }
 
 * {
@@ -23,122 +21,249 @@ body {
   min-height: 100vh;
 }
 
-.page-shell {
-  max-width: 1200px;
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-header {
+  border-bottom: 1px solid rgba(23, 32, 51, 0.08);
+  background: #ffffff;
+}
+
+.app-header > div {
+  max-width: 1360px;
   margin: 0 auto;
-  padding: 48px 20px 80px;
+  padding: 22px 24px;
 }
 
-.hero {
-  margin-bottom: 32px;
-}
-
-.hero__kicker {
-  margin: 0 0 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 0.75rem;
+.app-header__eyebrow,
+.screen__eyebrow,
+.ticket-card__eyebrow,
+.detail-panel__eyebrow {
+  margin: 0 0 6px;
   color: #476091;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
-.hero h1 {
+.app-header h1 {
   margin: 0;
-  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-size: 1.7rem;
 }
 
-.hero__lede {
-  max-width: 48rem;
+.app-header__description {
+  max-width: 52rem;
+  margin: 6px 0 0;
   color: #4d5f83;
 }
 
-.hero__nav {
-  margin-top: 20px;
+.app-layout {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
 }
 
+.app-sidebar {
+  position: sticky;
+  top: 24px;
+  padding: 12px;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 18px 50px rgba(88, 113, 173, 0.1);
+}
+
+.app-sidebar__nav,
+.screen,
+.detail-layout__primary,
+.detail-layout__inspection,
+.ticket-list,
+.result-list,
+.timeline-list {
+  display: grid;
+  gap: 14px;
+}
+
+.app-sidebar__link {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: #4d5f83;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.app-sidebar__link--active {
+  color: #ffffff;
+  background: #173e8f;
+}
+
+.app-main {
+  min-width: 0;
+}
+
+.screen {
+  gap: 20px;
+}
+
+.screen__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 18px 50px rgba(88, 113, 173, 0.1);
+}
+
+.screen__header h2 {
+  margin: 0;
+  font-size: 1.7rem;
+}
+
+.screen__header p {
+  margin: 6px 0 0;
+  color: #4d5f83;
+}
+
+.data-table {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 18px 50px rgba(88, 113, 173, 0.1);
+}
+
+.data-table__row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr minmax(220px, 2fr) 0.8fr 0.8fr 1fr 0.9fr;
+  gap: 14px;
+  align-items: center;
+  padding: 16px 18px;
+  border-top: 1px solid rgba(23, 32, 51, 0.08);
+}
+
+.data-table[aria-label="Pending reviews"] .data-table__row {
+  grid-template-columns: 1.1fr 0.9fr 0.8fr minmax(220px, 2fr) 0.8fr 0.9fr;
+}
+
+.data-table__row:first-child {
+  border-top: 0;
+}
+
+.data-table__row--header {
+  color: #476091;
+  background: #f8fbff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.data-table__primary {
+  color: #172033;
+  font-weight: 800;
+}
+
+.row-action,
 .secondary-link {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 12px;
   border-radius: 999px;
-  padding: 10px 16px;
-  color: #173e8f;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(23, 62, 143, 0.16);
+  font-weight: 700;
   text-decoration: none;
-  font-weight: 600;
+}
+
+.row-action {
+  color: #ffffff;
+  background: #173e8f;
+}
+
+.secondary-link {
+  color: #173e8f;
+  background: #ffffff;
+  border: 1px solid rgba(23, 62, 143, 0.16);
+}
+
+.detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.detail-layout--review {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.7fr);
+}
+
+.empty-state,
+.status-panel,
+.ticket-card,
+.detail-panel,
+.result-panel {
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  background: #ffffff;
+  box-shadow: 0 18px 50px rgba(88, 113, 173, 0.1);
+}
+
+.empty-state {
+  padding: 32px;
+  border-radius: 22px;
+}
+
+.empty-state h2 {
+  margin: 0;
+}
+
+.empty-state p,
+.timeline-empty,
+.timeline-item__meta,
+.timeline-item__message,
+.draft-meta {
+  color: #4d5f83;
 }
 
 .status-panel {
   padding: 20px 24px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(23, 32, 51, 0.08);
-  box-shadow: 0 20px 60px rgba(88, 113, 173, 0.12);
 }
 
 .status-panel--error {
   color: #8d2230;
   border-color: rgba(141, 34, 48, 0.18);
-  background: rgba(255, 240, 243, 0.9);
-}
-
-.workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr) minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-
-.review-grid {
-  display: grid;
-  gap: 24px;
-}
-
-.workspace__column {
-  display: grid;
-  gap: 18px;
-}
-
-.workspace__column--detail {
-  position: sticky;
-  top: 24px;
-}
-
-.workspace__column--timeline {
-  align-self: start;
-}
-
-.workspace__title {
-  margin: 0;
-  font-size: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: #476091;
-}
-
-.ticket-list {
-  display: grid;
-  gap: 18px;
+  background: #fff0f3;
 }
 
 .ticket-card,
 .detail-panel,
 .result-panel {
   padding: 24px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(23, 32, 51, 0.08);
-  box-shadow: 0 24px 60px rgba(88, 113, 173, 0.14);
+  border-radius: 22px;
 }
 
 .ticket-card--selected {
   border-color: rgba(54, 90, 165, 0.45);
-  box-shadow: 0 24px 60px rgba(59, 88, 159, 0.18);
 }
 
 .ticket-card__header,
 .detail-panel__header,
 .result-panel__header,
-.result-list__row {
+.result-list__row,
+.timeline-item__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -150,15 +275,6 @@ body {
 .result-panel__header h2 {
   margin: 0;
   font-size: 1.25rem;
-}
-
-.ticket-card__eyebrow,
-.detail-panel__eyebrow {
-  margin: 0 0 6px;
-  color: #476091;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
 }
 
 .ticket-card__preview {
@@ -221,8 +337,8 @@ body {
 }
 
 .primary-button {
-  border-radius: 16px;
-  background: linear-gradient(135deg, #173e8f, #3360c4);
+  border-radius: 14px;
+  background: #173e8f;
   padding: 14px 18px;
   font-weight: 700;
 }
@@ -243,9 +359,9 @@ body {
 .form-field textarea {
   width: 100%;
   border: 1px solid rgba(23, 32, 51, 0.12);
-  border-radius: 14px;
+  border-radius: 12px;
   padding: 12px 14px;
-  background: rgba(248, 251, 255, 0.94);
+  background: #f8fbff;
   color: #172033;
 }
 
@@ -259,28 +375,30 @@ body {
   color: #4d5f83;
 }
 
-.result-section + .result-section {
-  margin-top: 24px;
+.result-section + .result-section,
+.form-field + .form-field {
+  margin-top: 22px;
 }
 
 .result-tags {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 10px;
 }
 
-.result-list {
+.result-list,
+.timeline-list {
   list-style: none;
   padding: 0;
   margin: 0;
-  display: grid;
-  gap: 14px;
 }
 
-.result-list__item {
+.result-list__item,
+.timeline-item {
   padding: 16px;
-  border-radius: 18px;
-  background: rgba(238, 244, 255, 0.8);
+  border-radius: 16px;
+  background: #eef4ff;
 }
 
 .result-list__item p,
@@ -289,58 +407,25 @@ body {
   white-space: pre-wrap;
 }
 
-.timeline-empty,
-.timeline-item__meta,
-.timeline-item__message {
-  color: #4d5f83;
-}
-
-.timeline-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 14px;
-}
-
-.timeline-item {
-  padding: 16px;
-  border-radius: 18px;
-  background: rgba(238, 244, 255, 0.8);
-}
-
-.timeline-item__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 .timeline-item__header strong {
   text-transform: capitalize;
 }
 
-.timeline-item__meta {
-  margin: 8px 0 0;
-  font-size: 0.92rem;
-}
-
+.timeline-item__meta,
 .timeline-item__message {
   margin: 8px 0 0;
-}
-
-.draft-meta {
-  color: #4d5f83;
+  font-size: 0.92rem;
 }
 
 .pill {
   display: inline-flex;
   align-items: center;
+  width: fit-content;
   padding: 6px 10px;
   border-radius: 999px;
   text-transform: capitalize;
   font-size: 0.82rem;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .pill--low {
@@ -368,27 +453,58 @@ body {
   color: #27488f;
 }
 
-@media (max-width: 820px) {
-  .workspace {
+@media (max-width: 900px) {
+  .app-layout {
     grid-template-columns: 1fr;
   }
 
-  .workspace__column--detail {
+  .app-sidebar {
     position: static;
+  }
+
+  .app-sidebar__nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .detail-layout,
+  .detail-layout--review {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 640px) {
-  .page-shell {
-    padding-top: 32px;
+  .app-header > div,
+  .app-layout {
+    padding-left: 16px;
+    padding-right: 16px;
   }
 
+  .screen__header,
   .ticket-card__header,
   .detail-panel__header,
   .result-panel__header,
   .result-list__row,
   .timeline-item__header {
     flex-direction: column;
+  }
+
+  .data-table__row,
+  .data-table[aria-label="Pending reviews"] .data-table__row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .data-table__row--header {
+    display: none;
+  }
+
+  .data-table__row span[role="cell"]::before {
+    content: attr(data-label) ": ";
+    color: #6b7fa9;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
   }
 
   .detail-grid {

@@ -15,14 +15,15 @@ The behavior is visible in the browser. A user can open `/tickets`, scan the ful
 - [x] (2026-04-27) Read `docs/refs/demo-site-layout-redesign-v0.1.md` and confirmed it is specific enough to plan from.
 - [x] (2026-04-27) Inspected the current frontend routes, pages, API helpers, and type definitions.
 - [x] (2026-04-27) Created this active ExecPlan.
-- [ ] Add the shared app shell with header, description, sidebar, and main content region.
-- [ ] Convert `/tickets` into a full-width inbox list page.
-- [ ] Add `/tickets/:ticketId` as a dedicated ticket detail and run inspection page.
-- [ ] Convert `/reviews` into a full-width pending review queue page.
-- [ ] Add `/reviews/:threadId` as a dedicated review detail page.
-- [ ] Add or update frontend tests for routes, navigation, empty states, run behavior, and review submission.
-- [ ] Run frontend tests and build.
-- [ ] Update this ExecPlan with validation evidence and outcomes.
+- [x] (2026-04-27) Captured the frontend baseline before implementation.
+- [x] (2026-04-27) Added the shared app shell with header, description, sidebar, and main content region.
+- [x] (2026-04-27) Converted `/tickets` into a full-width inbox list page.
+- [x] (2026-04-27) Added `/tickets/:ticketId` as a dedicated ticket detail and run inspection page.
+- [x] (2026-04-27) Converted `/reviews` into a full-width pending review queue page.
+- [x] (2026-04-27) Added `/reviews/:threadId` as a dedicated review detail page.
+- [x] (2026-04-27) Added and updated frontend tests for routes, navigation, empty states, run behavior, and review submission.
+- [x] (2026-04-27) Ran frontend tests and build.
+- [x] (2026-04-27) Updated this ExecPlan with validation evidence and outcomes.
 
 ## Surprises & Discoveries
 
@@ -34,6 +35,12 @@ The behavior is visible in the browser. A user can open `/tickets`, scan the ful
 
 - Observation: The existing frontend API helpers are sufficient for the first pass.
   Evidence: `frontend/src/lib/api.ts` already exposes `fetchTickets`, `runTicket`, `fetchRunState`, `fetchRunTimeline`, `fetchPendingReviews`, and `resumeRun`.
+
+- Observation: The route split increased frontend test coverage while staying frontend-only.
+  Evidence: Before implementation, `npm test -- --run` reported `Test Files 4 passed (4)` and `Tests 9 passed (9)`. After implementation, it reported `Test Files 5 passed (5)` and `Tests 13 passed (13)`.
+
+- Observation: The production build updated `frontend/tsconfig.app.tsbuildinfo` because new tracked source files were added.
+  Evidence: The diff adds `src/App.test.tsx`, `src/App.tsx`, `src/components/AppShell.tsx`, `src/pages/ReviewDetailPage.tsx`, and `src/pages/TicketDetailPage.tsx` to the TypeScript build-info root list.
 
 ## Decision Log
 
@@ -53,9 +60,27 @@ The behavior is visible in the browser. A user can open `/tickets`, scan the ful
   Rationale: The reference asks for a header plus sidebar. A responsive stacked layout keeps the same navigation usable on mobile without adding a drawer state machine.
   Date/Author: 2026-04-27 / Codex
 
+- Decision: Hide run inspection for a restored thread when that thread belongs to a different ticket than the current detail route.
+  Rationale: The old combined page could switch the selected ticket to match restored state. A dedicated detail URL should not silently show another ticket's run state under the current ticket ID.
+  Date/Author: 2026-04-27 / Codex
+
 ## Outcomes & Retrospective
 
-Not started. At completion, summarize the shipped routes, shell behavior, tests, build output, and any trade-offs discovered while moving state from the old combined pages into dedicated detail routes.
+Completed on 2026-04-27. The frontend now has a shared `Support Agent Demo` shell with persistent sidebar navigation for `Inbox` and `Review Queue`. `/tickets` is a full-width inbox list, `/tickets/:ticketId` is the ticket detail and run inspection route, `/reviews` is a full-width pending review queue, and `/reviews/:threadId` is the review decision route.
+
+The implementation stayed frontend-only and preserved the existing API calls. Ticket details are derived from `fetchTickets()`, review details are derived from `fetchPendingReviews()`, workflow runs still call `runTicket(ticketId)`, run inspection still calls `fetchRunState(threadId)` and `fetchRunTimeline(threadId)`, and review submission still calls `resumeRun(threadId, body)`.
+
+Validation passed in `frontend/`:
+
+    npm test -- --run
+    Test Files  5 passed (5)
+    Tests       13 passed (13)
+
+    npm run build
+    44 modules transformed.
+    built in 478ms
+
+The main trade-off is that direct detail routes still load the parent list and find an item client-side. This matches the v0.1 reference and avoids backend work, but a future backend detail endpoint would reduce overfetching.
 
 ## Context and Orientation
 
@@ -121,7 +146,7 @@ Run the current frontend tests before implementation:
     cd /home/poter/resume-pj/supportflow-agent/frontend
     npm test -- --run
 
-Expected current baseline before this redesign, if the tree is in the same state observed while writing this plan:
+Observed baseline before implementation:
 
     Test Files  4 passed (4)
     Tests       9 passed (9)
@@ -131,6 +156,14 @@ Implement the route shell, list pages, detail pages, tests, and styles. After im
     cd /home/poter/resume-pj/supportflow-agent/frontend
     npm test -- --run
     npm run build
+
+Observed output after implementation:
+
+    Test Files  5 passed (5)
+    Tests       13 passed (13)
+
+    44 modules transformed.
+    built in 478ms
 
 If the build updates tracked TypeScript build-info files such as `frontend/tsconfig.app.tsbuildinfo`, inspect the diff and keep it only if it accurately reflects new tracked source files. Do not leave accidental unrelated generated output in the working tree.
 
@@ -192,6 +225,10 @@ Recommended frontend files to add or create are:
     frontend/src/pages/TicketDetailPage.tsx
     frontend/src/pages/ReviewDetailPage.tsx
 
+The implementation also adds:
+
+    frontend/src/App.test.tsx
+
 Recommended frontend files to update are:
 
     frontend/src/main.tsx
@@ -213,3 +250,5 @@ Do not add a new design system dependency. Use local React components and CSS.
 ## Plan Revision Notes
 
 2026-04-27: Initial active ExecPlan created from `docs/refs/demo-site-layout-redesign-v0.1.md`. The design choices are header plus sidebar, full-width list pages, dedicated detail routes, and no backend changes in the first pass.
+
+2026-04-27: Implementation completed. Progress, discoveries, decisions, validation evidence, and outcomes were updated to reflect the shipped frontend route split and app shell.
