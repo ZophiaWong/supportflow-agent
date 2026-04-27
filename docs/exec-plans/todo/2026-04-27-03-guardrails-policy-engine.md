@@ -120,7 +120,7 @@ Policy checks should be pure functions of ticket text, retrieved chunks, draft c
 
 ## Artifacts and Notes
 
-This plan follows the safe-tool plan in `docs/exec-plans/completed/2026-04-27-day10-safe-tool-action-layer.md`, but it can start earlier if limited to ticket, retrieval, and draft policy checks. If it starts before Day 10, record that scope decision in the Decision Log.
+This plan follows the safe-tool plan in `docs/exec-plans/active/2026-04-27-02-safe-tool-action-layer.md`, but it can start earlier if limited to ticket, retrieval, and draft policy checks. If it starts before the safe-tool plan is implemented, record that scope decision in the Decision Log.
 
 ## Interfaces and Dependencies
 
