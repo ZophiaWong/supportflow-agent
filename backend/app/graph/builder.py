@@ -13,6 +13,7 @@ from app.graph.nodes.propose_actions import propose_actions
 from app.graph.nodes.risk_gate import risk_gate
 from app.graph.nodes.retrieve_knowledge import retrieve_knowledge
 from app.graph.state import TicketState
+from app.graph.tracing import traced_node
 from app.services.sqlite_checkpointer import SqliteSaver
 
 
@@ -31,16 +32,22 @@ def _route_after_review_decision(state: TicketState) -> str:
 def get_support_graph():
     builder = StateGraph(TicketState)
 
-    builder.add_node("load_ticket_context", load_ticket_context)
-    builder.add_node("classify_ticket", classify_ticket)
-    builder.add_node("retrieve_knowledge", retrieve_knowledge)
-    builder.add_node("draft_reply", draft_reply)
-    builder.add_node("risk_gate", risk_gate)
-    builder.add_node("propose_actions", propose_actions)
-    builder.add_node("human_review_interrupt", human_review_interrupt)
-    builder.add_node("apply_review_decision", apply_review_decision)
-    builder.add_node("finalize_reply", finalize_reply)
-    builder.add_node("manual_takeover", manual_takeover)
+    builder.add_node("load_ticket_context", traced_node("load_ticket_context", load_ticket_context))
+    builder.add_node("classify_ticket", traced_node("classify_ticket", classify_ticket))
+    builder.add_node("retrieve_knowledge", traced_node("retrieve_knowledge", retrieve_knowledge))
+    builder.add_node("draft_reply", traced_node("draft_reply", draft_reply))
+    builder.add_node("risk_gate", traced_node("risk_gate", risk_gate))
+    builder.add_node("propose_actions", traced_node("propose_actions", propose_actions))
+    builder.add_node(
+        "human_review_interrupt",
+        traced_node("human_review_interrupt", human_review_interrupt),
+    )
+    builder.add_node(
+        "apply_review_decision",
+        traced_node("apply_review_decision", apply_review_decision),
+    )
+    builder.add_node("finalize_reply", traced_node("finalize_reply", finalize_reply))
+    builder.add_node("manual_takeover", traced_node("manual_takeover", manual_takeover))
 
     builder.add_edge(START, "load_ticket_context")
     builder.add_edge("load_ticket_context", "classify_ticket")

@@ -9,16 +9,18 @@ import { TicketsPage } from "./TicketsPage";
 const { runTicketMock } = vi.hoisted(() => ({
   runTicketMock: vi.fn(),
 }));
-const { fetchTicketsMock, fetchRunStateMock, fetchRunTimelineMock } = vi.hoisted(() => ({
+const { fetchTicketsMock, fetchRunStateMock, fetchRunTimelineMock, fetchRunTraceMock } = vi.hoisted(() => ({
   fetchTicketsMock: vi.fn(),
   fetchRunStateMock: vi.fn(),
   fetchRunTimelineMock: vi.fn(),
+  fetchRunTraceMock: vi.fn(),
 }));
 
 vi.mock("../lib/api", () => ({
   fetchTickets: fetchTicketsMock,
   fetchRunState: fetchRunStateMock,
   fetchRunTimeline: fetchRunTimelineMock,
+  fetchRunTrace: fetchRunTraceMock,
   runTicket: runTicketMock,
 }));
 
@@ -130,6 +132,7 @@ describe("Tickets routes", () => {
     runTicketMock.mockReset();
     fetchRunStateMock.mockReset();
     fetchRunTimelineMock.mockReset();
+    fetchRunTraceMock.mockReset();
     fetchTicketsMock.mockResolvedValue(tickets);
     runTicketMock.mockResolvedValue(runResult);
     fetchRunStateMock.mockResolvedValue({
@@ -150,6 +153,30 @@ describe("Tickets routes", () => {
           message: "Workflow completed.",
           created_at: "2026-04-25T15:00:01Z",
           payload: null,
+        },
+      ],
+    });
+    fetchRunTraceMock.mockResolvedValue({
+      thread_id: "ticket-ticket-1002-1234abcd",
+      events: [
+        {
+          trace_id: "trace-risk",
+          thread_id: "ticket-ticket-1002-1234abcd",
+          ticket_id: "ticket-1002",
+          node_name: "risk_gate",
+          span_type: "graph_node",
+          status: "completed",
+          started_at: "2026-04-25T15:00:00Z",
+          ended_at: "2026-04-25T15:00:00.003Z",
+          duration_ms: 3,
+          summary: "Policy evaluation found 2 failed checks.",
+          attributes: {
+            failed_policy_ids: [
+              "priority_requires_review",
+              "high_impact_action_requires_review",
+            ],
+            proposed_action_types: ["send_customer_reply"],
+          },
         },
       ],
     });
@@ -227,9 +254,12 @@ describe("Tickets routes", () => {
     expect(runTicketMock).toHaveBeenCalledWith("ticket-1002");
     expect(fetchRunStateMock).toHaveBeenCalledWith("ticket-ticket-1002-1234abcd");
     expect(fetchRunTimelineMock).toHaveBeenCalledWith("ticket-ticket-1002-1234abcd");
+    expect(fetchRunTraceMock).toHaveBeenCalledWith("ticket-ticket-1002-1234abcd");
     expect(screen.getByText("Current run state")).toBeInTheDocument();
     expect(screen.getAllByText("send customer reply").length).toBeGreaterThan(0);
     expect(screen.getByText("Major steps")).toBeInTheDocument();
+    expect(screen.getByText("Node spans")).toBeInTheDocument();
+    expect(screen.getByText(/high impact action requires review/)).toBeInTheDocument();
   });
 
   it("restores the last inspected thread on a matching ticket detail route", async () => {
@@ -248,6 +278,7 @@ describe("Tickets routes", () => {
     });
 
     expect(fetchRunTimelineMock).toHaveBeenCalledWith("ticket-ticket-1002-1234abcd");
+    expect(fetchRunTraceMock).toHaveBeenCalledWith("ticket-ticket-1002-1234abcd");
   });
 
   it("shows a recoverable state for a missing ticket route", async () => {

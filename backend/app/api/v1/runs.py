@@ -9,12 +9,14 @@ from app.schemas.graph import (
     PendingReviewItem,
     RunStateResponse,
     RunTicketResponse,
+    RunTraceResponse,
     RunTimelineResponse,
     SubmitReviewDecisionRequest,
 )
 from app.services.pending_review_store import get_pending_review_store
 from app.services.run_event_store import get_run_event_store
 from app.services.run_state_service import get_run_state
+from app.services.run_trace_store import get_run_trace_store
 from app.services.ticket_repo import TicketNotFoundError
 
 router = APIRouter(prefix="/api/v1", tags=["runs"])
@@ -289,3 +291,13 @@ def read_run_timeline(thread_id: str) -> RunTimelineResponse:
     if not events:
         raise HTTPException(status_code=404, detail="Run timeline not found")
     return RunTimelineResponse(thread_id=thread_id, events=events)
+
+
+@router.get("/runs/{thread_id}/trace", response_model=RunTraceResponse)
+def read_run_trace(thread_id: str) -> RunTraceResponse:
+    trace_store = get_run_trace_store()
+    event_store = get_run_event_store()
+    events = trace_store.list_by_thread_id(thread_id)
+    if not events and not event_store.has_thread(thread_id):
+        raise HTTPException(status_code=404, detail="Run trace not found")
+    return RunTraceResponse(thread_id=thread_id, events=events)

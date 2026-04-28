@@ -2,6 +2,7 @@ import type {
   PendingReviewItem,
   RunStateResponse,
   RunTicketResponse,
+  RunTraceResponse,
   RunTimelineResponse,
   SubmitReviewDecisionRequest,
   Ticket,
@@ -78,4 +79,14 @@ export async function fetchRunTimeline(threadId: string): Promise<RunTimelineRes
   }
 
   return (await response.json()) as RunTimelineResponse;
+}
+
+export async function fetchRunTrace(threadId: string): Promise<RunTraceResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/runs/${threadId}/trace`);
+
+  if (!response.ok) {
+    throw new Error(`Unable to load run trace (${response.status})`);
+  }
+
+  return (await response.json()) as RunTraceResponse;
 }

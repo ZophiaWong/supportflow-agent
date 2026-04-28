@@ -2,19 +2,27 @@ from fastapi import HTTPException
 
 from app.api.v1.health import healthz
 from app.api.v1.reviews import list_pending_reviews
-from app.api.v1.runs import read_run_state, read_run_timeline, resume_run, run_ticket
+from app.api.v1.runs import (
+    read_run_state,
+    read_run_timeline,
+    read_run_trace,
+    resume_run,
+    run_ticket,
+)
 from app.api.v1.tickets import list_tickets
 from app.main import app
 from app.schemas.graph import SubmitReviewDecisionRequest
 from app.services.action_ledger import get_action_ledger
 from app.services.pending_review_store import get_pending_review_store
 from app.services.run_event_store import get_run_event_store
+from app.services.run_trace_store import get_run_trace_store
 
 
 def setup_function() -> None:
     get_action_ledger().clear()
     get_pending_review_store().clear()
     get_run_event_store().clear()
+    get_run_trace_store().clear()
 
 
 def test_healthz_returns_ok() -> None:
@@ -38,6 +46,7 @@ def test_app_registers_expected_routes() -> None:
     assert "/api/v1/runs/{thread_id}/resume" in route_paths
     assert "/api/v1/runs/{thread_id}/state" in route_paths
     assert "/api/v1/runs/{thread_id}/timeline" in route_paths
+    assert "/api/v1/runs/{thread_id}/trace" in route_paths
     assert "/api/v1/reviews/pending" in route_paths
 
 
@@ -115,6 +124,87 @@ def test_run_timeline_endpoint_reads_major_events() -> None:
         "interrupt_created",
     ]
     assert payload.events[-1].status == "waiting_review"
+
+
+def test_run_trace_endpoint_reads_approval_gated_interrupt_spans() -> None:
+    pending = run_ticket("ticket-1003")
+
+    payload = read_run_trace(pending.thread_id)
+    by_node = {event.node_name: event for event in payload.events}
+
+    assert payload.thread_id == pending.thread_id
+    assert [event.node_name for event in payload.events] == [
+        "load_ticket_context",
+        "classify_ticket",
+        "retrieve_knowledge",
+        "draft_reply",
+        "propose_actions",
+        "risk_gate",
+        "human_review_interrupt",
+    ]
+    assert {event.status for event in payload.events[:-1]} == {"completed"}
+    assert payload.events[-1].status == "interrupted"
+    assert all(event.started_at <= event.ended_at for event in payload.events)
+    assert all(event.duration_ms >= 0 for event in payload.events)
+    assert "finalize_reply" not in by_node
+    assert by_node["risk_gate"].attributes["failed_policy_ids"] == [
+        "high_impact_action_requires_review"
+    ]
+    assert by_node["human_review_interrupt"].attributes["proposed_action_types"] == [
+        "send_customer_reply"
+    ]
+
+
+def test_run_trace_endpoint_records_approve_resume_and_executed_actions() -> None:
+    pending = run_ticket("ticket-1003")
+
+    resume_run(
+        pending.thread_id,
+        SubmitReviewDecisionRequest(
+            decision="approve",
+            reviewer_note="send approved",
+        ),
+    )
+
+    payload = read_run_trace(pending.thread_id)
+    final_span = payload.events[-1]
+
+    assert [event.node_name for event in payload.events[-3:]] == [
+        "human_review_interrupt",
+        "apply_review_decision",
+        "finalize_reply",
+    ]
+    assert final_span.node_name == "finalize_reply"
+    assert final_span.status == "completed"
+    assert final_span.attributes["final_disposition"] == "approved"
+    assert "send_customer_reply" in final_span.attributes["executed_action_types"]
+
+
+def test_run_trace_endpoint_records_reject_manual_takeover_actions() -> None:
+    pending = run_ticket("ticket-1001")
+
+    resume_run(
+        pending.thread_id,
+        SubmitReviewDecisionRequest(
+            decision="reject",
+            reviewer_note="manual handling required",
+        ),
+    )
+
+    payload = read_run_trace(pending.thread_id)
+    risk_span = next(event for event in payload.events if event.node_name == "risk_gate")
+    manual_span = payload.events[-1]
+
+    assert "billing_sensitive" in risk_span.attributes["failed_policy_ids"]
+    assert "sensitive_request" in risk_span.attributes["failed_policy_ids"]
+    assert risk_span.attributes["proposed_action_types"] == [
+        "send_customer_reply",
+        "create_refund_case",
+    ]
+    assert manual_span.node_name == "manual_takeover"
+    assert manual_span.status == "completed"
+    assert manual_span.attributes["workflow_status"] == "manual_takeover"
+    assert set(manual_span.attributes["action_statuses"].values()) >= {"rejected"}
 
 
 def test_resume_run_approves_pending_review() -> None:
@@ -237,6 +327,16 @@ def test_read_run_timeline_returns_404_for_unknown_thread() -> None:
         assert exc.detail == "Run timeline not found"
     else:
         raise AssertionError("Expected HTTPException for missing run timeline")
+
+
+def test_read_run_trace_returns_404_for_unknown_thread() -> None:
+    try:
+        read_run_trace("ticket-does-not-exist")
+    except HTTPException as exc:
+        assert exc.status_code == 404
+        assert exc.detail == "Run trace not found"
+    else:
+        raise AssertionError("Expected HTTPException for missing run trace")
 
 
 def test_run_ticket_returns_404_for_unknown_ticket() -> None:

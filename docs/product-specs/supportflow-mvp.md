@@ -20,6 +20,7 @@ draft replies, and send risky cases to human review.
 - final response display
 - simulated support actions with human approval before external sends
 - structured policy checks for review routing and reviewer guidance
+- local run trace dashboard with measured graph-node spans
 
 ## Out of scope
 
@@ -41,7 +42,8 @@ Verified on 2026-04-28.
 - One ticket can enter the workflow: `POST /api/v1/tickets/ticket-1003/run` now pauses in `waiting_review` with a proposed `send_customer_reply` action and a failed `high_impact_action_requires_review` policy because external customer sends require approval before execution.
 - System can show a draft reply, action plan, and policy assessment: backend and frontend tests passed, and workflow responses include draft content, KB evidence, citations, proposed actions, action status, failed policy IDs, severity, reviewer-facing messages, and evidence.
 - Risky cases can be reviewed by a human: `ticket-1001` enters `waiting_review` with policy-derived flags such as `billing_sensitive`, `sensitive_request`, and `high_impact_action_requires_review`; approve executes the proposed actions once, while reject leaves external actions unexecuted and moves the run to `manual_takeover`.
-- Automated acceptance passed: backend tests `32 passed`, frontend tests `13 passed`, frontend production build succeeded, and offline eval reported `graph_v1` final pass rate `1.00` with `0` bad cases.
+- Run behavior is inspectable without logs: `GET /api/v1/runs/{thread_id}/trace` returns measured node spans with durations, policy IDs, proposed/executed action attributes, review decisions, and final disposition. The ticket detail page renders these trace spans beside the existing timeline.
+- Automated acceptance passed: backend tests `36 passed`, frontend tests `13 passed`, frontend production build succeeded, and offline eval reported `graph_v1` final pass rate `1.00` with `0` bad cases.
 
 Verified on 2026-04-26.
 

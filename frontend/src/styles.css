@@ -439,6 +439,18 @@ body {
   font-size: 0.92rem;
 }
 
+.trace-attributes {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  color: #3e4f70;
+  font-size: 0.9rem;
+}
+
+.trace-attributes p {
+  margin: 0;
+}
+
 .pill {
   display: inline-flex;
   align-items: center;

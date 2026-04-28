@@ -5,8 +5,15 @@ import { RunStatePanel } from "../components/RunStatePanel";
 import { TicketDetail } from "../components/TicketDetail";
 import { WorkflowResultPanel } from "../components/WorkflowResultPanel";
 import { WorkflowTimeline } from "../components/WorkflowTimeline";
-import { fetchRunState, fetchRunTimeline, fetchTickets, runTicket } from "../lib/api";
-import type { RunStateResponse, RunTicketResponse, RunTimelineEvent, Ticket } from "../lib/types";
+import { WorkflowTrace } from "../components/WorkflowTrace";
+import { fetchRunState, fetchRunTimeline, fetchRunTrace, fetchTickets, runTicket } from "../lib/api";
+import type {
+  RunStateResponse,
+  RunTicketResponse,
+  RunTimelineEvent,
+  RunTraceEvent,
+  Ticket,
+} from "../lib/types";
 
 const LAST_THREAD_ID_STORAGE_KEY = "supportflow:last-thread-id";
 
@@ -31,6 +38,7 @@ export function TicketDetailPage() {
   });
   const [runState, setRunState] = useState<RunStateResponse | null>(null);
   const [timelineEvents, setTimelineEvents] = useState<RunTimelineEvent[]>([]);
+  const [traceEvents, setTraceEvents] = useState<RunTraceEvent[]>([]);
   const [runStateLoading, setRunStateLoading] = useState(false);
   const [runStateError, setRunStateError] = useState<string | null>(null);
 
@@ -66,6 +74,7 @@ export function TicketDetailPage() {
     if (!activeThreadId) {
       setRunState(null);
       setTimelineEvents([]);
+      setTraceEvents([]);
       setRunStateError(null);
       return;
     }
@@ -77,9 +86,10 @@ export function TicketDetailPage() {
     async function loadRunInspection() {
       setRunStateLoading(true);
       try {
-        const [nextState, nextTimeline] = await Promise.all([
+        const [nextState, nextTimeline, nextTrace] = await Promise.all([
           fetchRunState(threadId),
           fetchRunTimeline(threadId),
+          fetchRunTrace(threadId),
         ]);
 
         if (cancelled) {
@@ -88,6 +98,7 @@ export function TicketDetailPage() {
 
         setRunState(nextState.ticket_id === ticketId ? nextState : null);
         setTimelineEvents(nextState.ticket_id === ticketId ? nextTimeline.events : []);
+        setTraceEvents(nextState.ticket_id === ticketId ? nextTrace.events : []);
         setRunStateError(null);
 
         if (nextState.ticket_id === ticketId && shouldPoll(nextState.status)) {
@@ -187,6 +198,7 @@ export function TicketDetailPage() {
         <div className="detail-layout__inspection">
           <RunStatePanel state={runState} loading={runStateLoading} error={runStateError} />
           <WorkflowTimeline events={timelineEvents} />
+          <WorkflowTrace events={traceEvents} />
         </div>
       </div>
     </section>

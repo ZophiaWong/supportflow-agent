@@ -142,6 +142,25 @@ export interface RunTimelineResponse {
   events: RunTimelineEvent[];
 }
 
+export interface RunTraceEvent {
+  trace_id: string;
+  thread_id: string;
+  ticket_id: string;
+  node_name: string;
+  span_type: "graph_node";
+  status: "completed" | "interrupted" | "failed";
+  started_at: string;
+  ended_at: string;
+  duration_ms: number;
+  summary: string;
+  attributes: Record<string, unknown>;
+}
+
+export interface RunTraceResponse {
+  thread_id: string;
+  events: RunTraceEvent[];
+}
+
 export interface RunStateResponse {
   thread_id: string;
   ticket_id: string;

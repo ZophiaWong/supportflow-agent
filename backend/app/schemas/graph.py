@@ -117,6 +117,25 @@ class RunTimelineResponse(BaseModel):
     events: list[RunTimelineEvent]
 
 
+class RunTraceEvent(BaseModel):
+    trace_id: str
+    thread_id: str
+    ticket_id: str
+    node_name: str
+    span_type: Literal["graph_node"]
+    status: Literal["completed", "interrupted", "failed"]
+    started_at: str
+    ended_at: str
+    duration_ms: int
+    summary: str
+    attributes: dict[str, Any] = Field(default_factory=dict)
+
+
+class RunTraceResponse(BaseModel):
+    thread_id: str
+    events: list[RunTraceEvent]
+
+
 class RunStateResponse(BaseModel):
     thread_id: str
     ticket_id: str
