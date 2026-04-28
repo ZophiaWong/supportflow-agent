@@ -155,7 +155,7 @@ body {
 }
 
 .data-table[aria-label="Pending reviews"] .data-table__row {
-  grid-template-columns: 1.1fr 0.9fr 0.8fr minmax(180px, 1.5fr) minmax(180px, 1.5fr) 0.8fr 0.9fr;
+  grid-template-columns: 1.1fr 0.9fr 0.8fr minmax(150px, 1.3fr) minmax(180px, 1.5fr) minmax(160px, 1.4fr) 0.8fr 0.9fr;
 }
 
 .data-table__row:first-child {
@@ -389,6 +389,7 @@ body {
 
 .result-list,
 .action-list,
+.policy-list,
 .timeline-list {
   list-style: none;
   padding: 0;
@@ -397,24 +398,28 @@ body {
 
 .result-list__item,
 .action-list__item,
+.policy-list__item,
 .timeline-item {
   padding: 16px;
   border-radius: 16px;
   background: #eef4ff;
 }
 
-.action-list__item + .action-list__item {
+.action-list__item + .action-list__item,
+.policy-list__item + .policy-list__item {
   margin-top: 10px;
 }
 
-.action-list__row {
+.action-list__row,
+.policy-list__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
-.action-list__item p {
+.action-list__item p,
+.policy-list__item p {
   margin: 8px 0 0;
 }
 
@@ -468,6 +473,21 @@ body {
 .pill--workflow {
   background: #e7eefc;
   color: #27488f;
+}
+
+.pill--policy-info {
+  background: #e8f4f3;
+  color: #23635d;
+}
+
+.pill--policy-warning {
+  background: #fff4da;
+  color: #886300;
+}
+
+.pill--policy-blocker {
+  background: #ffe1e6;
+  color: #a61b38;
 }
 
 @media (max-width: 900px) {

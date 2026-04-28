@@ -17,6 +17,7 @@ class EvalReferenceOutputs(BaseModel):
     must_include_citation: bool
     must_not_claim: list[str] = Field(default_factory=list)
     expected_risk_flags: list[str] = Field(default_factory=list)
+    expected_policy_ids: list[str] = Field(default_factory=list)
     expected_status: Literal["done", "waiting_review", "manual_takeover", "failed"] | None = None
 
 
@@ -51,6 +52,7 @@ class EvalMetricResult(BaseModel):
         "unsupported_claim_absent",
         "expected_status",
         "expected_risk_flags",
+        "expected_policy_ids",
         "final_pass",
     ]
     passed: bool | None
@@ -92,6 +94,7 @@ class EvalRunSummary(BaseModel):
     unsupported_claim_absence: float
     expected_status_accuracy: float | None
     expected_risk_flag_accuracy: float | None
+    expected_policy_accuracy: float | None
     final_pass_rate: float
     bad_case_count: int
     trace_events_path: str

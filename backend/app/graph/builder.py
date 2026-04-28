@@ -16,7 +16,7 @@ from app.graph.state import TicketState
 from app.services.sqlite_checkpointer import SqliteSaver
 
 
-def _route_after_action_proposal(state: TicketState) -> str:
+def _route_after_risk_gate(state: TicketState) -> str:
     return "human_review_interrupt" if state.get("review_required") else "finalize_reply"
 
 
@@ -46,9 +46,9 @@ def get_support_graph():
     builder.add_edge("load_ticket_context", "classify_ticket")
     builder.add_edge("classify_ticket", "retrieve_knowledge")
     builder.add_edge("retrieve_knowledge", "draft_reply")
-    builder.add_edge("draft_reply", "risk_gate")
-    builder.add_edge("risk_gate", "propose_actions")
-    builder.add_conditional_edges("propose_actions", _route_after_action_proposal)
+    builder.add_edge("draft_reply", "propose_actions")
+    builder.add_edge("propose_actions", "risk_gate")
+    builder.add_conditional_edges("risk_gate", _route_after_risk_gate)
     builder.add_edge("human_review_interrupt", "apply_review_decision")
     builder.add_conditional_edges("apply_review_decision", _route_after_review_decision)
     builder.add_edge("finalize_reply", END)

@@ -30,6 +30,20 @@ class RiskAssessment(BaseModel):
     reason: str
 
 
+class PolicyCheckResult(BaseModel):
+    policy_id: str
+    severity: Literal["info", "warning", "blocker"]
+    passed: bool
+    message: str
+    evidence: list[str] = Field(default_factory=list)
+
+
+class PolicyAssessment(BaseModel):
+    review_required: bool
+    failed_policy_ids: list[str] = Field(default_factory=list)
+    results: list[PolicyCheckResult] = Field(default_factory=list)
+
+
 class SubmitReviewDecisionRequest(BaseModel):
     decision: Literal["approve", "edit", "reject"]
     reviewer_note: str | None = None
@@ -49,6 +63,7 @@ class PendingReviewItem(BaseModel):
     draft: DraftReply
     retrieved_chunks: list[KBHit]
     risk_flags: list[str]
+    policy_assessment: PolicyAssessment | None = None
     proposed_actions: list[SupportAction] = Field(default_factory=list)
     allowed_decisions: list[Literal["approve", "edit", "reject"]]
 
@@ -67,6 +82,7 @@ class RunTicketResponse(BaseModel):
     retrieved_chunks: list[KBHit]
     draft: DraftReply
     risk_assessment: RiskAssessment | None = None
+    policy_assessment: PolicyAssessment | None = None
     pending_review: PendingReviewItem | None = None
     final_response: FinalResponse | None = None
     proposed_actions: list[SupportAction] = Field(default_factory=list)
@@ -110,6 +126,7 @@ class RunStateResponse(BaseModel):
     retrieved_chunks: list[KBHit]
     draft: DraftReply | None = None
     risk_assessment: RiskAssessment | None = None
+    policy_assessment: PolicyAssessment | None = None
     review_decision: SubmitReviewDecisionRequest | None = None
     final_response: FinalResponse | None = None
     pending_review: PendingReviewItem | None = None

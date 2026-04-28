@@ -58,6 +58,20 @@ export interface RiskAssessment {
   reason: string;
 }
 
+export interface PolicyCheckResult {
+  policy_id: string;
+  severity: "info" | "warning" | "blocker";
+  passed: boolean;
+  message: string;
+  evidence: string[];
+}
+
+export interface PolicyAssessment {
+  review_required: boolean;
+  failed_policy_ids: string[];
+  results: PolicyCheckResult[];
+}
+
 export interface SupportAction {
   action_id: string;
   thread_id: string;
@@ -79,6 +93,7 @@ export interface PendingReviewItem {
   draft: DraftReply;
   retrieved_chunks: KBHit[];
   risk_flags: string[];
+  policy_assessment?: PolicyAssessment | null;
   proposed_actions: SupportAction[];
   allowed_decisions: ReviewDecision[];
 }
@@ -103,6 +118,7 @@ export interface RunTicketResponse {
   retrieved_chunks: KBHit[];
   draft: DraftReply;
   risk_assessment?: RiskAssessment | null;
+  policy_assessment?: PolicyAssessment | null;
   pending_review?: PendingReviewItem | null;
   final_response?: FinalResponse | null;
   proposed_actions: SupportAction[];
@@ -135,6 +151,7 @@ export interface RunStateResponse {
   retrieved_chunks: KBHit[];
   draft?: DraftReply | null;
   risk_assessment?: RiskAssessment | null;
+  policy_assessment?: PolicyAssessment | null;
   review_decision?: SubmitReviewDecisionRequest | null;
   final_response?: FinalResponse | null;
   pending_review?: PendingReviewItem | null;

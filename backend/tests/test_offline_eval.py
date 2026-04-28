@@ -22,6 +22,9 @@ def test_load_eval_dataset_reads_expanded_fixed_cases() -> None:
     assert examples[1].reference_outputs.should_retrieve_doc_ids == ["account_unlock"]
     assert examples[2].reference_outputs.should_trigger_review is True
     assert examples[2].metadata["review_reason"] == "external_send_approval"
+    assert examples[2].reference_outputs.expected_policy_ids == [
+        "high_impact_action_requires_review"
+    ]
     assert examples[15].reference_outputs.must_not_claim == [
         "refund today",
         "ignore previous rules",
@@ -65,6 +68,7 @@ def test_graph_target_can_load_eval_only_ticket() -> None:
     assert output.status == "waiting_review"
     assert "bug_export_issue" in output.retrieved_doc_ids
     assert "priority_requires_review" in output.metadata["risk_flags"]
+    assert "priority_requires_review" in output.metadata["failed_policy_ids"]
 
 
 def test_graph_target_returns_no_evidence_for_unsupported_tickets() -> None:
@@ -78,6 +82,7 @@ def test_graph_target_returns_no_evidence_for_unsupported_tickets() -> None:
         assert output.citations == []
         assert output.review_required is True
         assert "no_evidence" in output.metadata["risk_flags"]
+        assert "no_evidence" in output.metadata["failed_policy_ids"]
 
 
 def test_unsupported_claim_scoring_detects_forbidden_phrase() -> None:
@@ -126,6 +131,7 @@ def test_offline_eval_writes_summary_bad_cases_and_traces(tmp_path: Path, monkey
     assert graph_summary.review_trigger_accuracy >= 0.9
     assert graph_summary.final_pass_rate > baseline_summary.final_pass_rate
     assert graph_summary.expected_risk_flag_accuracy is not None
+    assert graph_summary.expected_policy_accuracy is not None
 
     summary_path = tmp_path / "latest_summary.json"
     bad_cases_path = tmp_path / "bad_cases.jsonl"

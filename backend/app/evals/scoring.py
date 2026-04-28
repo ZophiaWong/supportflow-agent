@@ -261,6 +261,58 @@ def score_example(example: EvalExample, output: EvalTargetOutput) -> EvalExample
             )
         )
 
+    if reference.expected_policy_ids:
+        actual_policy_ids = output.metadata.get("failed_policy_ids")
+        if isinstance(actual_policy_ids, list):
+            missing_policy_ids = sorted(
+                set(reference.expected_policy_ids) - set(actual_policy_ids)
+            )
+            policy_ids_passed = not missing_policy_ids
+            metrics.append(
+                _passed_metric(
+                    "expected_policy_ids",
+                    reference.expected_policy_ids,
+                    actual_policy_ids,
+                    policy_ids_passed,
+                )
+            )
+            if not policy_ids_passed:
+                bad_cases.append(
+                    _bad_case(
+                        example=example,
+                        output=output,
+                        failure_type="missing_expected_policy_id",
+                        expected={"expected_policy_ids": reference.expected_policy_ids},
+                        actual={
+                            "failed_policy_ids": actual_policy_ids,
+                            "missing": missing_policy_ids,
+                        },
+                        notes="Target policy assessment did not include all expected policy IDs.",
+                    )
+                )
+        else:
+            metrics.append(
+                EvalMetricResult(
+                    name="expected_policy_ids",
+                    passed=None,
+                    score=None,
+                    expected=reference.expected_policy_ids,
+                    actual=None,
+                    notes="Target does not expose failed policy IDs.",
+                )
+            )
+    else:
+        metrics.append(
+            EvalMetricResult(
+                name="expected_policy_ids",
+                passed=None,
+                score=None,
+                expected=[],
+                actual=output.metadata.get("failed_policy_ids"),
+                notes="Reference does not specify expected policy IDs.",
+            )
+        )
+
     primitive_passes = [
         metric.passed
         for metric in metrics
@@ -336,6 +388,7 @@ def summarize_results(
         unsupported_claim_absence=_rate(results, "unsupported_claim_absent"),
         expected_status_accuracy=_optional_rate(results, "expected_status"),
         expected_risk_flag_accuracy=_optional_rate(results, "expected_risk_flags"),
+        expected_policy_accuracy=_optional_rate(results, "expected_policy_ids"),
         final_pass_rate=_rate(results, "final_pass"),
         bad_case_count=bad_case_count,
         trace_events_path=trace_events_path,

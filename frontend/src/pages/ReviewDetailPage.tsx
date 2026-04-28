@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 
+import { PolicyAssessmentList } from "../components/PolicyAssessmentList";
 import { SupportActionList } from "../components/SupportActionList";
 import { fetchPendingReviews, resumeRun } from "../lib/api";
 import type { PendingReviewItem, ReviewDecision, RunTicketResponse } from "../lib/types";
@@ -134,6 +135,11 @@ export function ReviewDetailPage() {
             </div>
 
             <div className="result-section">
+              <h3>Policy checks</h3>
+              <PolicyAssessmentList assessment={pendingReview.policy_assessment} />
+            </div>
+
+            <div className="result-section">
               <h3>Proposed actions</h3>
               <SupportActionList actions={pendingReview.proposed_actions ?? []} />
             </div>
@@ -246,6 +252,11 @@ export function ReviewDetailPage() {
               <p>A human agent now owns this ticket because the AI draft was rejected.</p>
             </div>
           )}
+
+          <div className="result-section">
+            <h3>Policy checks</h3>
+            <PolicyAssessmentList assessment={result.policy_assessment} />
+          </div>
 
           <div className="result-section">
             <h3>Action ledger</h3>

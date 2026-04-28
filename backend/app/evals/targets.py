@@ -91,6 +91,7 @@ def run_graph_v1(example: EvalExample, trace_writer: TraceWriter | None = None) 
     draft = result.get("draft")
     final_response = result.get("final_response")
     risk_assessment = result.get("risk_assessment")
+    policy_assessment = result.get("policy_assessment")
     interrupted = "__interrupt__" in result
     status = "waiting_review" if interrupted else result.get("status", "failed")
     review_required = (
@@ -143,6 +144,7 @@ def run_graph_v1(example: EvalExample, trace_writer: TraceWriter | None = None) 
         metadata={
             "thread_id": thread_id,
             "risk_flags": getattr(risk_assessment, "risk_flags", []),
+            "failed_policy_ids": getattr(policy_assessment, "failed_policy_ids", []),
             "final_disposition": getattr(final_response, "disposition", None),
         },
     )

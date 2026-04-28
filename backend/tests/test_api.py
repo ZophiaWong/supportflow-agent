@@ -48,7 +48,9 @@ def test_run_ticket_returns_waiting_review_for_risky_ticket() -> None:
     assert payload.status == "waiting_review"
     assert payload.risk_assessment is not None
     assert payload.risk_assessment.review_required is True
+    assert payload.policy_assessment is not None
     assert "billing_sensitive" in payload.risk_assessment.risk_flags
+    assert "high_impact_action_requires_review" in payload.policy_assessment.failed_policy_ids
     assert payload.pending_review is not None
     assert payload.pending_review.thread_id == payload.thread_id
     assert payload.thread_id.startswith("ticket-ticket-1001-")
@@ -66,8 +68,12 @@ def test_run_ticket_returns_waiting_review_for_low_risk_customer_send() -> None:
     assert payload.status == "waiting_review"
     assert payload.final_response is None
     assert payload.risk_assessment is not None
-    assert payload.risk_assessment.review_required is False
+    assert payload.risk_assessment.review_required is True
+    assert payload.policy_assessment is not None
+    assert payload.risk_assessment.risk_flags == ["high_impact_action_requires_review"]
+    assert payload.policy_assessment.failed_policy_ids == ["high_impact_action_requires_review"]
     assert payload.pending_review is not None
+    assert payload.pending_review.policy_assessment is not None
     assert payload.proposed_actions[0].action_type == "send_customer_reply"
     assert payload.proposed_actions[0].status == "proposed"
     assert payload.proposed_actions[0].requires_review is True
@@ -91,6 +97,7 @@ def test_run_state_endpoint_reads_waiting_review_state() -> None:
     assert payload.current_node == "human_review_interrupt"
     assert payload.pending_review is not None
     assert payload.risk_assessment is not None
+    assert payload.policy_assessment is not None
 
 
 def test_run_timeline_endpoint_reads_major_events() -> None:

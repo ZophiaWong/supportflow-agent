@@ -18,8 +18,13 @@ def test_low_risk_ticket_waits_for_customer_send_approval() -> None:
     assert state.status == "waiting_review"
     assert state.final_response is None
     assert state.risk_assessment is not None
-    assert state.risk_assessment.review_required is False
+    assert state.risk_assessment.review_required is True
+    assert state.policy_assessment is not None
+    assert state.policy_assessment.failed_policy_ids == [
+        "high_impact_action_requires_review"
+    ]
     assert state.pending_review is not None
+    assert state.pending_review.policy_assessment is not None
     assert state.pending_review.proposed_actions[0].action_type == "send_customer_reply"
     assert state.pending_review.proposed_actions[0].requires_review is True
     assert [event.event_type for event in timeline.events] == [

@@ -110,15 +110,12 @@ def _action_proposals(state: TicketState) -> list[SupportActionCreate]:
 def propose_actions(state: TicketState) -> TicketState:
     ledger = get_action_ledger()
     proposed_actions = [ledger.propose(action) for action in _action_proposals(state)]
-    risk_assessment = state["risk_assessment"]
-    action_review_required = any(action.requires_review for action in proposed_actions)
 
     return {
         "proposed_actions": proposed_actions,
         "executed_actions": [
             action for action in proposed_actions if action.status == "executed"
         ],
-        "review_required": risk_assessment.review_required or action_review_required,
         "status": "running",
         "current_node": "propose_actions",
     }

@@ -38,6 +38,7 @@ def get_run_state(thread_id: str) -> RunStateResponse | None:
         retrieved_chunks=values.get("retrieved_chunks", []),
         draft=values.get("draft"),
         risk_assessment=values.get("risk_assessment"),
+        policy_assessment=values.get("policy_assessment"),
         review_decision=values.get("review_decision"),
         final_response=values.get("final_response"),
         pending_review=pending_review,

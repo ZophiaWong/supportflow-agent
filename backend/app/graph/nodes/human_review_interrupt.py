@@ -12,6 +12,7 @@ def human_review_interrupt(state: TicketState) -> TicketState:
         draft=state["draft"],
         retrieved_chunks=state.get("retrieved_chunks", []),
         risk_flags=state["risk_assessment"].risk_flags,
+        policy_assessment=state.get("policy_assessment"),
         proposed_actions=state.get("proposed_actions", []),
         allowed_decisions=["approve", "edit", "reject"],
     )

@@ -1,4 +1,5 @@
 import type { RunStateResponse } from "../lib/types";
+import { PolicyAssessmentList } from "./PolicyAssessmentList";
 import { SupportActionList } from "./SupportActionList";
 
 interface RunStatePanelProps {
@@ -79,6 +80,11 @@ export function RunStatePanel({ state, loading, error }: RunStatePanelProps) {
           ) : null}
         </div>
       ) : null}
+
+      <div className="result-section">
+        <h3>Policy checks</h3>
+        <PolicyAssessmentList assessment={state.policy_assessment} />
+      </div>
 
       {state.pending_review ? (
         <div className="result-section">

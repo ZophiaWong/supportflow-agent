@@ -29,6 +29,7 @@ def _build_response(result: dict[str, Any]) -> RunTicketResponse:
         retrieved_chunks=result.get("retrieved_chunks", []),
         draft=result["draft"],
         risk_assessment=result.get("risk_assessment"),
+        policy_assessment=result.get("policy_assessment"),
         pending_review=result.get("pending_review"),
         final_response=result.get("final_response"),
         proposed_actions=result.get("proposed_actions", []),
@@ -62,6 +63,7 @@ def _append_major_run_events(
     retrieved_chunks = result.get("retrieved_chunks", [])
     draft = result.get("draft")
     risk_assessment = result.get("risk_assessment")
+    policy_assessment = result.get("policy_assessment")
 
     if classification is not None:
         event_store.append(
@@ -113,6 +115,11 @@ def _append_major_run_events(
                 payload={
                     "review_required": risk_assessment.review_required,
                     "risk_flags": risk_assessment.risk_flags,
+                    "failed_policy_ids": (
+                        policy_assessment.failed_policy_ids
+                        if policy_assessment is not None
+                        else []
+                    ),
                 },
             )
         )

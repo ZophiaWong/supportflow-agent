@@ -18,7 +18,10 @@ def test_graph_smoke_pauses_low_risk_ticket_for_send_approval() -> None:
     assert result["status"] == "running"
     assert result["classification"].category == "product"
     assert result["retrieved_chunks"][0].doc_id == "annual_plan_seats"
-    assert result["risk_assessment"].review_required is False
+    assert result["risk_assessment"].review_required is True
+    assert result["policy_assessment"].failed_policy_ids == [
+        "high_impact_action_requires_review"
+    ]
     assert result["review_required"] is True
     assert result["proposed_actions"][0].action_type == "send_customer_reply"
     assert result["proposed_actions"][0].requires_review is True
@@ -40,6 +43,7 @@ def test_graph_smoke_interrupts_and_resumes_high_risk_ticket() -> None:
     assert "__interrupt__" in interrupted
     assert interrupted["classification"].category == "billing"
     assert interrupted["risk_assessment"].review_required is True
+    assert "billing_sensitive" in interrupted["policy_assessment"].failed_policy_ids
 
     resumed = graph.invoke(
         Command(resume={"decision": "edit", "edited_answer": "Custom approved answer."}),

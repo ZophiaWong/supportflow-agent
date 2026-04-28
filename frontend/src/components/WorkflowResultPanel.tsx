@@ -1,4 +1,5 @@
 import type { RunTicketResponse } from "../lib/types";
+import { PolicyAssessmentList } from "./PolicyAssessmentList";
 import { SupportActionList } from "./SupportActionList";
 
 interface WorkflowResultPanelProps {
@@ -73,6 +74,11 @@ export function WorkflowResultPanel({ result, error }: WorkflowResultPanelProps)
           ) : null}
         </div>
       ) : null}
+
+      <div className="result-section">
+        <h3>Policy checks</h3>
+        <PolicyAssessmentList assessment={result.policy_assessment} />
+      </div>
 
       <div className="result-section">
         <h3>Support actions</h3>

@@ -6,6 +6,7 @@ from app.schemas.graph import (
     FinalResponse,
     KBHit,
     PendingReviewItem,
+    PolicyAssessment,
     RiskAssessment,
     SubmitReviewDecisionRequest,
     TicketClassification,
@@ -22,6 +23,7 @@ class TicketState(TypedDict, total=False):
     retrieved_chunks: list[KBHit]
     draft: DraftReply
     risk_assessment: RiskAssessment
+    policy_assessment: PolicyAssessment
     proposed_actions: list[SupportAction]
     executed_actions: list[SupportAction]
     review_required: bool

@@ -38,6 +38,26 @@ const pendingReview = {
     },
   ],
   risk_flags: ["billing_sensitive"],
+  policy_assessment: {
+    review_required: true,
+    failed_policy_ids: ["billing_sensitive", "high_impact_action_requires_review"],
+    results: [
+      {
+        policy_id: "billing_sensitive",
+        severity: "warning",
+        passed: false,
+        message: "Billing drafts below 0.85 confidence require review.",
+        evidence: ["billing", "0.82"],
+      },
+      {
+        policy_id: "high_impact_action_requires_review",
+        severity: "warning",
+        passed: false,
+        message: "One or more proposed support actions require human approval.",
+        evidence: ["send_customer_reply", "create_refund_case"],
+      },
+    ],
+  },
   proposed_actions: [
     {
       action_id: "act-send",
@@ -85,6 +105,7 @@ describe("Review routes", () => {
         ...action,
         status: "executed",
       })),
+      policy_assessment: pendingReview.policy_assessment,
       executed_actions: pendingReview.proposed_actions.map((action) => ({
         ...action,
         status: "executed",
@@ -109,9 +130,11 @@ describe("Review routes", () => {
     });
 
     expect(screen.getByRole("columnheader", { name: "Risk flags" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Policy checks" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Actions" })).toBeInTheDocument();
     expect(screen.getByText("ticket-1001")).toBeInTheDocument();
     expect(screen.getByText("billing sensitive")).toBeInTheDocument();
+    expect(screen.getByText(/high impact action requires review/)).toBeInTheDocument();
     expect(screen.getByText(/send customer reply/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open review" })).toHaveAttribute(
       "href",
@@ -142,6 +165,7 @@ describe("Review routes", () => {
     });
 
     expect(screen.getByRole("heading", { name: "ticket-1001" })).toBeInTheDocument();
+    expect(screen.getByText("Policy checks")).toBeInTheDocument();
     expect(screen.getByText("create refund case")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Back to review queue" })).toHaveAttribute(
       "href",
