@@ -16,6 +16,8 @@ describe("RunStatePanel", () => {
           draft: null,
           final_response: null,
           pending_review: null,
+          proposed_actions: [],
+          executed_actions: [],
           error: null,
         }}
         loading={false}

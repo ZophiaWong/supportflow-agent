@@ -13,18 +13,25 @@ This feature demonstrates production agent engineering because tool use is where
 ## Progress
 
 - [x] (2026-04-27) Created this active ExecPlan from `docs/product-specs/ai-agent-engineer-portfolio-roadmap.md`.
-- [ ] Confirm Day 9 durable workflow state is complete or explicitly decide how action state will persist.
-- [ ] Add action schemas and an action ledger service.
-- [ ] Add graph node or finalization integration that proposes actions from classification, draft, and risk state.
-- [ ] Gate high-impact actions behind human review.
-- [ ] Expose actions in backend responses and frontend ticket/review views.
-- [ ] Add backend and frontend tests.
-- [ ] Update docs and this ExecPlan with observed behavior.
+- [x] (2026-04-28) Confirmed Day 9 durable workflow state is complete and action state can use the same SQLite storage path.
+- [x] (2026-04-28) Added action schemas and a durable action ledger service.
+- [x] (2026-04-28) Added graph action proposal, review approval/rejection, and final execution integration.
+- [x] (2026-04-28) Gated high-impact actions behind human review, including `send_customer_reply`.
+- [x] (2026-04-28) Exposed actions in backend responses and frontend ticket/review views.
+- [x] (2026-04-28) Added backend and frontend tests.
+- [x] (2026-04-28) Updated docs and this ExecPlan with observed behavior.
+- [x] (2026-04-27) Clarified that external customer sends require review before execution, even on otherwise low-risk tickets.
 
 ## Surprises & Discoveries
 
-- Observation: No implementation discoveries yet.
-  Evidence: This plan has only been created.
+- Observation: The durable SQLite storage layer from Day 9 was already available for action state.
+  Evidence: `backend/app/services/sqlite_store.py` owns runtime tables and now initializes `support_actions`.
+
+- Observation: Low-risk tickets now pause for action approval even when content-risk rules do not fire.
+  Evidence: `ticket-1003` returns `waiting_review` with a proposed `send_customer_reply` action and `risk_assessment.review_required == false`.
+
+- Observation: Offline eval references needed to distinguish the new external-send approval policy from old low-risk auto-finalization.
+  Evidence: `data/evals/supportflow_v1.jsonl` now expects low-risk examples to enter `waiting_review` for external send approval.
 
 ## Decision Log
 
@@ -36,9 +43,19 @@ This feature demonstrates production agent engineering because tool use is where
   Rationale: Refunds, credits, and external sends are side effects. A portfolio project should show that agent autonomy is bounded by explicit policy and review.
   Date/Author: 2026-04-27 / Codex
 
+- Decision: Treat `send_customer_reply` as an approval-gated external send, not as a low-risk auto-executed action.
+  Rationale: The action layer's safety boundary is about side-effect execution, not only draft content risk. Low-risk tickets may skip extra content-review flags, but the simulated customer send must remain proposed until a human explicitly approves it. The first implementation can reuse the existing review/resume path for this approval instead of adding a separate approval queue.
+  Date/Author: 2026-04-27 / Codex
+
 ## Outcomes & Retrospective
 
-Not started. At completion, summarize the action types, ledger persistence behavior, approval gates, frontend displays, and any remaining tool-use gaps.
+Completed on 2026-04-28.
+
+The workflow now proposes simulated support actions through a durable SQLite-backed action ledger. `send_customer_reply` is always approval-gated as an external customer-facing side effect. Billing refund language proposes `create_refund_case`; billing credit language proposes `apply_credit`; urgent bug/security/data-loss language proposes `escalate_to_tier_2`; reviewer notes create an executed `add_internal_note` action.
+
+Review approval marks proposed external actions approved and `finalize_reply` executes them once. Review rejection marks external proposed actions rejected and routes to manual takeover. `ActionLedger.execute_once()` returns an already executed action without duplicating it, and tests cover that retry behavior.
+
+Backend run, state, pending review, and resume responses include proposed and executed actions. The frontend renders action status in ticket workflow output, run state inspection, review queue rows, review detail, and completed review output.
 
 ## Context and Orientation
 
@@ -66,11 +83,11 @@ Third, add `backend/app/services/action_ledger.py`. It should support creating p
 
 Fourth, add action proposal logic. Keep it simple and inspectable: billing refund language proposes `create_refund_case`; billing credit language proposes `apply_credit`; urgent bug or security language proposes `escalate_to_tier_2`; every finalizable reply proposes `send_customer_reply`; reviewer comments can create `add_internal_note` if useful. Do not call an LLM to invent tools in this plan.
 
-Fifth, integrate actions into the graph. Prefer adding one node before finalization, such as `propose_actions`, or enriching `risk_gate` and `finalize_reply` if that is less invasive. The graph state should include `proposed_actions` and `executed_actions`. High-impact actions should make `review_required` true, with risk flags that explain why.
+Fifth, integrate actions into the graph. Prefer adding one node before finalization, such as `propose_actions`, or enriching `risk_gate` and `finalize_reply` if that is less invasive. The graph state should include `proposed_actions` and `executed_actions`. High-impact actions should make `review_required` true, with risk flags that explain why. `send_customer_reply` is considered high-impact for execution gating because it is an external customer-facing side effect. Even when the content itself is low risk, the send action must be proposed with `requires_review=true` and must not execute until the reviewer approves the run.
 
 Sixth, update backend responses so ticket run, run state, pending review, and final responses include relevant actions. The frontend should show proposed actions on the ticket detail and review queue. Use compact operational UI: badges for action status, labels for type, and short reason text.
 
-Seventh, add tests. Backend tests should cover low-risk send action, refund or credit action requiring review, reject not executing an action, approve executing once, and duplicate resume not creating duplicate executed actions. Frontend tests should cover action display in ticket and review views.
+Seventh, add tests. Backend tests should cover low-risk send action being proposed but not executed until review approval, refund or credit action requiring review, reject not executing an action, approve executing once, and duplicate resume not creating duplicate executed actions. Frontend tests should cover action display in ticket and review views.
 
 ## Concrete Steps
 
@@ -106,7 +123,7 @@ Manual smoke target:
 
     POST /api/v1/tickets/ticket-1003/run
 
-Expected result: a low-risk run includes a proposed or executed `send_customer_reply` action and finishes without review if policy allows.
+Expected result: a low-risk run includes a proposed `send_customer_reply` action with `requires_review=true` and pauses in `waiting_review` before any customer send is marked executed. Approving the review executes the send exactly once. Rejecting the review leaves the send unexecuted and moves the run to manual takeover.
 
     POST /api/v1/tickets/ticket-1001/run
 
@@ -122,6 +139,13 @@ This plan is complete when all of these are true:
 - Resuming the same reviewed run cannot duplicate an executed action.
 - Ticket detail and review queue show proposed and executed actions.
 - Backend tests, frontend tests, frontend build, and offline eval pass.
+
+Validation run on 2026-04-28:
+
+- `cd backend && uv run --cache-dir /tmp/uv-cache pytest`: 30 passed.
+- `cd backend && uv run --cache-dir /tmp/uv-cache python scripts/run_offline_eval.py`: `graph_v1` final pass rate 1.00 with 0 bad cases.
+- `cd frontend && npm test -- --run`: 13 passed.
+- `cd frontend && npm run build`: built successfully with 45 transformed modules.
 
 ## Idempotence and Recovery
 
@@ -147,3 +171,4 @@ Prefer Python standard-library code and existing Pydantic schemas. Do not add ex
 ## Plan Revision Notes
 
 2026-04-27: Initial active ExecPlan created by splitting the AI Agent Engineer portfolio roadmap into implementation milestones.
+2026-04-28: Implemented the durable action ledger, graph integration, UI action display, tests, eval expectation update, and MVP documentation update.

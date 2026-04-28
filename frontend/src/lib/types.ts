@@ -4,6 +4,13 @@ export type WorkflowCategory = "billing" | "account" | "product" | "bug" | "othe
 export type WorkflowPriority = "P0" | "P1" | "P2" | "P3";
 export type WorkflowStatus = "done" | "failed" | "running" | "waiting_review" | "manual_takeover";
 export type ReviewDecision = "approve" | "edit" | "reject";
+export type SupportActionType =
+  | "send_customer_reply"
+  | "create_refund_case"
+  | "apply_credit"
+  | "escalate_to_tier_2"
+  | "add_internal_note";
+export type SupportActionStatus = "proposed" | "approved" | "executed" | "rejected" | "failed";
 export type RunTimelineEventType =
   | "run_started"
   | "classify_completed"
@@ -51,6 +58,20 @@ export interface RiskAssessment {
   reason: string;
 }
 
+export interface SupportAction {
+  action_id: string;
+  thread_id: string;
+  ticket_id: string;
+  action_type: SupportActionType;
+  status: SupportActionStatus;
+  idempotency_key: string;
+  requires_review: boolean;
+  reason: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface PendingReviewItem {
   thread_id: string;
   ticket_id: string;
@@ -58,6 +79,7 @@ export interface PendingReviewItem {
   draft: DraftReply;
   retrieved_chunks: KBHit[];
   risk_flags: string[];
+  proposed_actions: SupportAction[];
   allowed_decisions: ReviewDecision[];
 }
 
@@ -83,6 +105,8 @@ export interface RunTicketResponse {
   risk_assessment?: RiskAssessment | null;
   pending_review?: PendingReviewItem | null;
   final_response?: FinalResponse | null;
+  proposed_actions: SupportAction[];
+  executed_actions: SupportAction[];
 }
 
 export interface RunTimelineEvent {
@@ -114,5 +138,7 @@ export interface RunStateResponse {
   review_decision?: SubmitReviewDecisionRequest | null;
   final_response?: FinalResponse | null;
   pending_review?: PendingReviewItem | null;
+  proposed_actions: SupportAction[];
+  executed_actions: SupportAction[];
   error?: string | null;
 }

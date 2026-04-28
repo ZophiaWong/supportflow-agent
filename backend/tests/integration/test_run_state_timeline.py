@@ -9,22 +9,26 @@ def setup_function() -> None:
     get_run_event_store().clear()
 
 
-def test_low_risk_ticket_creates_final_state_and_timeline() -> None:
+def test_low_risk_ticket_waits_for_customer_send_approval() -> None:
     response = run_ticket("ticket-1003")
 
     state = read_run_state(response.thread_id)
     timeline = read_run_timeline(response.thread_id)
 
-    assert state.status == "done"
-    assert state.final_response is not None
-    assert state.final_response.disposition == "auto_finalized"
+    assert state.status == "waiting_review"
+    assert state.final_response is None
+    assert state.risk_assessment is not None
+    assert state.risk_assessment.review_required is False
+    assert state.pending_review is not None
+    assert state.pending_review.proposed_actions[0].action_type == "send_customer_reply"
+    assert state.pending_review.proposed_actions[0].requires_review is True
     assert [event.event_type for event in timeline.events] == [
         "run_started",
         "classify_completed",
         "retrieve_completed",
         "draft_completed",
         "risk_gate_completed",
-        "run_completed",
+        "interrupt_created",
     ]
 
 

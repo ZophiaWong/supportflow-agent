@@ -38,6 +38,34 @@ const pendingReview = {
     },
   ],
   risk_flags: ["billing_sensitive"],
+  proposed_actions: [
+    {
+      action_id: "act-send",
+      thread_id: "ticket-ticket-1001",
+      ticket_id: "ticket-1001",
+      action_type: "send_customer_reply",
+      status: "proposed",
+      idempotency_key: "ticket-ticket-1001:ticket-1001:send_customer_reply",
+      requires_review: true,
+      reason: "Send the final approved support reply to the customer.",
+      payload: {},
+      created_at: "2026-04-28T02:00:00Z",
+      updated_at: "2026-04-28T02:00:00Z",
+    },
+    {
+      action_id: "act-refund",
+      thread_id: "ticket-ticket-1001",
+      ticket_id: "ticket-1001",
+      action_type: "create_refund_case",
+      status: "proposed",
+      idempotency_key: "ticket-ticket-1001:ticket-1001:create_refund_case",
+      requires_review: true,
+      reason: "Open a refund review case for the duplicate-charge request.",
+      payload: {},
+      created_at: "2026-04-28T02:00:00Z",
+      updated_at: "2026-04-28T02:00:00Z",
+    },
+  ],
   allowed_decisions: ["approve", "edit", "reject"],
 };
 
@@ -53,6 +81,14 @@ describe("Review routes", () => {
       classification: pendingReview.classification,
       retrieved_chunks: pendingReview.retrieved_chunks,
       draft: pendingReview.draft,
+      proposed_actions: pendingReview.proposed_actions.map((action) => ({
+        ...action,
+        status: "executed",
+      })),
+      executed_actions: pendingReview.proposed_actions.map((action) => ({
+        ...action,
+        status: "executed",
+      })),
       final_response: {
         answer: "Hi Avery Chen,\n\nWe reviewed your request.",
         citations: ["refund_policy"],
@@ -73,8 +109,10 @@ describe("Review routes", () => {
     });
 
     expect(screen.getByRole("columnheader", { name: "Risk flags" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Actions" })).toBeInTheDocument();
     expect(screen.getByText("ticket-1001")).toBeInTheDocument();
     expect(screen.getByText("billing sensitive")).toBeInTheDocument();
+    expect(screen.getByText(/send customer reply/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open review" })).toHaveAttribute(
       "href",
       "/reviews/ticket-ticket-1001",
@@ -104,6 +142,7 @@ describe("Review routes", () => {
     });
 
     expect(screen.getByRole("heading", { name: "ticket-1001" })).toBeInTheDocument();
+    expect(screen.getByText("create refund case")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Back to review queue" })).toHaveAttribute(
       "href",
       "/reviews",

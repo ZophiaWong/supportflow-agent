@@ -1,4 +1,5 @@
 import type { RunStateResponse } from "../lib/types";
+import { SupportActionList } from "./SupportActionList";
 
 interface RunStatePanelProps {
   state: RunStateResponse | null;
@@ -85,6 +86,11 @@ export function RunStatePanel({ state, loading, error }: RunStatePanelProps) {
           <p>This run is waiting for a human reviewer to approve, edit, or reject the draft.</p>
         </div>
       ) : null}
+
+      <div className="result-section">
+        <h3>Action ledger</h3>
+        <SupportActionList actions={state.proposed_actions ?? []} />
+      </div>
 
       {state.error ? (
         <div className="result-section">

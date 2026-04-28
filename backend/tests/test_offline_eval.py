@@ -20,7 +20,8 @@ def test_load_eval_dataset_reads_expanded_fixed_cases() -> None:
     assert examples[3].inputs.ticket_id == "eval-ticket-2001"
     assert examples[0].reference_outputs.category == "billing"
     assert examples[1].reference_outputs.should_retrieve_doc_ids == ["account_unlock"]
-    assert examples[2].reference_outputs.should_trigger_review is False
+    assert examples[2].reference_outputs.should_trigger_review is True
+    assert examples[2].metadata["review_reason"] == "external_send_approval"
     assert examples[15].reference_outputs.must_not_claim == [
         "refund today",
         "ignore previous rules",

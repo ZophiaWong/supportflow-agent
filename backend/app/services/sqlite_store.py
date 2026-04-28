@@ -48,6 +48,23 @@ def initialize_schema(connection: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_run_events_thread_created
             ON run_events(thread_id, created_at, event_id);
 
+        CREATE TABLE IF NOT EXISTS support_actions (
+            action_id TEXT PRIMARY KEY,
+            thread_id TEXT NOT NULL,
+            ticket_id TEXT NOT NULL,
+            action_type TEXT NOT NULL,
+            status TEXT NOT NULL,
+            idempotency_key TEXT NOT NULL UNIQUE,
+            requires_review INTEGER NOT NULL,
+            reason TEXT NOT NULL,
+            payload_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_support_actions_thread_updated
+            ON support_actions(thread_id, updated_at, action_id);
+
         CREATE TABLE IF NOT EXISTS langgraph_checkpoints (
             thread_id TEXT NOT NULL,
             checkpoint_ns TEXT NOT NULL,
@@ -93,6 +110,7 @@ def clear_runtime_tables() -> None:
             """
             DELETE FROM pending_reviews;
             DELETE FROM run_events;
+            DELETE FROM support_actions;
             DELETE FROM langgraph_writes;
             DELETE FROM langgraph_blobs;
             DELETE FROM langgraph_checkpoints;

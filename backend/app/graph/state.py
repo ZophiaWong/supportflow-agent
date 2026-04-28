@@ -1,5 +1,6 @@
 from typing import Any, Literal, TypedDict
 
+from app.schemas.actions import SupportAction
 from app.schemas.graph import (
     DraftReply,
     FinalResponse,
@@ -21,6 +22,8 @@ class TicketState(TypedDict, total=False):
     retrieved_chunks: list[KBHit]
     draft: DraftReply
     risk_assessment: RiskAssessment
+    proposed_actions: list[SupportAction]
+    executed_actions: list[SupportAction]
     review_required: bool
     pending_review: PendingReviewItem
     review_decision: SubmitReviewDecisionRequest
@@ -32,6 +35,7 @@ class TicketState(TypedDict, total=False):
         "retrieve_knowledge",
         "draft_reply",
         "risk_gate",
+        "propose_actions",
         "human_review_interrupt",
         "apply_review_decision",
         "finalize_reply",

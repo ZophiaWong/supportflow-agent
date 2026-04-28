@@ -31,6 +31,8 @@ def _build_response(result: dict[str, Any]) -> RunTicketResponse:
         risk_assessment=result.get("risk_assessment"),
         pending_review=result.get("pending_review"),
         final_response=result.get("final_response"),
+        proposed_actions=result.get("proposed_actions", []),
+        executed_actions=result.get("executed_actions", []),
     )
 
 

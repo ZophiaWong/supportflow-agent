@@ -61,6 +61,7 @@ export function ReviewQueuePage() {
             <span role="columnheader">Category</span>
             <span role="columnheader">Priority</span>
             <span role="columnheader">Risk flags</span>
+            <span role="columnheader">Actions</span>
             <span role="columnheader">Confidence</span>
             <span role="columnheader">Action</span>
           </div>
@@ -77,7 +78,14 @@ export function ReviewQueuePage() {
                 <span className="pill pill--workflow">{item.classification.priority}</span>
               </span>
               <span role="cell" data-label="Risk flags">
-                {item.risk_flags.map((flag) => flag.replace(/_/g, " ")).join(", ")}
+                {item.risk_flags.length > 0
+                  ? item.risk_flags.map((flag) => flag.replace(/_/g, " ")).join(", ")
+                  : "action approval"}
+              </span>
+              <span role="cell" data-label="Actions">
+                {(item.proposed_actions ?? [])
+                  .map((action) => action.action_type.replace(/_/g, " "))
+                  .join(", ") || "None"}
               </span>
               <span role="cell" data-label="Confidence">
                 {item.draft.confidence.toFixed(2)}

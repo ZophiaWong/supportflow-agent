@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 
+import { SupportActionList } from "../components/SupportActionList";
 import { fetchPendingReviews, resumeRun } from "../lib/api";
 import type { PendingReviewItem, ReviewDecision, RunTicketResponse } from "../lib/types";
 
@@ -119,13 +120,22 @@ export function ReviewDetailPage() {
 
             <div className="result-section">
               <h3>Risk flags</h3>
-              <div className="result-tags">
-                {pendingReview.risk_flags.map((flag) => (
-                  <span key={flag} className="pill pill--workflow">
-                    {flag.replace(/_/g, " ")}
-                  </span>
-                ))}
-              </div>
+              {pendingReview.risk_flags.length > 0 ? (
+                <div className="result-tags">
+                  {pendingReview.risk_flags.map((flag) => (
+                    <span key={flag} className="pill pill--workflow">
+                      {flag.replace(/_/g, " ")}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p>No content-risk flags. Review is required for external action approval.</p>
+              )}
+            </div>
+
+            <div className="result-section">
+              <h3>Proposed actions</h3>
+              <SupportActionList actions={pendingReview.proposed_actions ?? []} />
             </div>
 
             <div className="result-section">
@@ -236,6 +246,11 @@ export function ReviewDetailPage() {
               <p>A human agent now owns this ticket because the AI draft was rejected.</p>
             </div>
           )}
+
+          <div className="result-section">
+            <h3>Action ledger</h3>
+            <SupportActionList actions={result.proposed_actions ?? []} />
+          </div>
         </section>
       ) : null}
     </section>

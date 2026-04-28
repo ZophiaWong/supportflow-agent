@@ -6,11 +6,13 @@ from app.api.v1.runs import read_run_state, read_run_timeline, resume_run, run_t
 from app.api.v1.tickets import list_tickets
 from app.main import app
 from app.schemas.graph import SubmitReviewDecisionRequest
+from app.services.action_ledger import get_action_ledger
 from app.services.pending_review_store import get_pending_review_store
 from app.services.run_event_store import get_run_event_store
 
 
 def setup_function() -> None:
+    get_action_ledger().clear()
     get_pending_review_store().clear()
     get_run_event_store().clear()
 
@@ -51,16 +53,24 @@ def test_run_ticket_returns_waiting_review_for_risky_ticket() -> None:
     assert payload.pending_review.thread_id == payload.thread_id
     assert payload.thread_id.startswith("ticket-ticket-1001-")
     assert payload.pending_review.retrieved_chunks
+    assert {action.action_type for action in payload.proposed_actions} == {
+        "send_customer_reply",
+        "create_refund_case",
+    }
 
 
-def test_run_ticket_returns_final_response_for_low_risk_ticket() -> None:
+def test_run_ticket_returns_waiting_review_for_low_risk_customer_send() -> None:
     payload = run_ticket("ticket-1003")
 
     assert payload.ticket_id == "ticket-1003"
-    assert payload.status == "done"
-    assert payload.final_response is not None
-    assert payload.final_response.disposition == "auto_finalized"
-    assert payload.pending_review is None
+    assert payload.status == "waiting_review"
+    assert payload.final_response is None
+    assert payload.risk_assessment is not None
+    assert payload.risk_assessment.review_required is False
+    assert payload.pending_review is not None
+    assert payload.proposed_actions[0].action_type == "send_customer_reply"
+    assert payload.proposed_actions[0].status == "proposed"
+    assert payload.proposed_actions[0].requires_review is True
 
 
 def test_pending_review_endpoint_lists_waiting_items() -> None:
@@ -84,7 +94,7 @@ def test_run_state_endpoint_reads_waiting_review_state() -> None:
 
 
 def test_run_timeline_endpoint_reads_major_events() -> None:
-    completed = run_ticket("ticket-1003")
+    completed = run_ticket("ticket-1001")
 
     payload = read_run_timeline(completed.thread_id)
 
@@ -95,9 +105,9 @@ def test_run_timeline_endpoint_reads_major_events() -> None:
         "retrieve_completed",
         "draft_completed",
         "risk_gate_completed",
-        "run_completed",
+        "interrupt_created",
     ]
-    assert payload.events[-1].status == "done"
+    assert payload.events[-1].status == "waiting_review"
 
 
 def test_resume_run_approves_pending_review() -> None:
@@ -115,6 +125,8 @@ def test_resume_run_approves_pending_review() -> None:
     assert payload.final_response is not None
     assert payload.final_response.disposition == "approved"
     assert payload.pending_review is None
+    assert {action.status for action in payload.proposed_actions} == {"executed"}
+    assert len(payload.executed_actions) == len(payload.proposed_actions)
     assert list_pending_reviews() == []
 
     timeline = read_run_timeline(pending.thread_id)
@@ -138,6 +150,53 @@ def test_resume_run_rejects_to_manual_takeover() -> None:
 
     assert payload.status == "manual_takeover"
     assert payload.final_response is None
+    assert payload.proposed_actions
+    external_actions = [
+        action
+        for action in payload.proposed_actions
+        if action.action_type != "add_internal_note"
+    ]
+    assert {action.status for action in external_actions} == {"rejected"}
+    assert [
+        action.status
+        for action in payload.proposed_actions
+        if action.action_type == "add_internal_note"
+    ] == ["executed"]
+
+
+def test_low_risk_send_action_executes_once_after_approval() -> None:
+    pending = run_ticket("ticket-1003")
+    action = pending.proposed_actions[0]
+
+    assert action.action_type == "send_customer_reply"
+    assert action.status == "proposed"
+
+    payload = resume_run(
+        pending.thread_id,
+        SubmitReviewDecisionRequest(
+            decision="approve",
+            reviewer_note="send approved",
+        ),
+    )
+
+    send_actions = [
+        action
+        for action in payload.proposed_actions
+        if action.action_type == "send_customer_reply"
+    ]
+    assert len(send_actions) == 1
+    assert send_actions[0].status == "executed"
+    assert payload.executed_actions
+
+    executed_again = get_action_ledger().execute_once(send_actions[0].action_id)
+    actions_after_retry = get_action_ledger().list_by_thread_id(pending.thread_id)
+    executed_send_actions = [
+        action
+        for action in actions_after_retry
+        if action.action_type == "send_customer_reply" and action.status == "executed"
+    ]
+    assert executed_again.status == "executed"
+    assert len(executed_send_actions) == 1
 
 
 def test_resume_run_returns_404_for_unknown_thread() -> None:

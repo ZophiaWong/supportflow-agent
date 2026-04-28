@@ -46,7 +46,7 @@ const tickets = [
 const runResult = {
   thread_id: "ticket-ticket-1002-1234abcd",
   ticket_id: "ticket-1002",
-  status: "done",
+  status: "waiting_review",
   classification: {
     category: "account",
     priority: "P0",
@@ -65,11 +65,62 @@ const runResult = {
     citations: ["account_unlock"],
     confidence: 0.82,
   },
-  final_response: {
-    answer: "Hi Jordan Patel,\n\nWe reviewed your request.",
-    citations: ["account_unlock"],
-    disposition: "auto_finalized",
+  pending_review: {
+    thread_id: "ticket-ticket-1002-1234abcd",
+    ticket_id: "ticket-1002",
+    classification: {
+      category: "account",
+      priority: "P0",
+      reason: "Ticket mentions account access or password recovery.",
+    },
+    retrieved_chunks: [
+      {
+        doc_id: "account_unlock",
+        title: "Account Unlock Guide",
+        score: 0.75,
+        snippet: "If an administrator is locked out after a password reset...",
+      },
+    ],
+    draft: {
+      answer: "Hi Jordan Patel,\n\nWe reviewed your request.",
+      citations: ["account_unlock"],
+      confidence: 0.82,
+    },
+    risk_flags: ["priority_requires_review"],
+    proposed_actions: [
+      {
+        action_id: "act-send",
+        thread_id: "ticket-ticket-1002-1234abcd",
+        ticket_id: "ticket-1002",
+        action_type: "send_customer_reply",
+        status: "proposed",
+        idempotency_key: "ticket-ticket-1002-1234abcd:ticket-1002:send_customer_reply",
+        requires_review: true,
+        reason: "Send the final approved support reply to the customer.",
+        payload: {},
+        created_at: "2026-04-28T02:00:00Z",
+        updated_at: "2026-04-28T02:00:00Z",
+      },
+    ],
+    allowed_decisions: ["approve", "edit", "reject"],
   },
+  final_response: null,
+  proposed_actions: [
+    {
+      action_id: "act-send",
+      thread_id: "ticket-ticket-1002-1234abcd",
+      ticket_id: "ticket-1002",
+      action_type: "send_customer_reply",
+      status: "proposed",
+      idempotency_key: "ticket-ticket-1002-1234abcd:ticket-1002:send_customer_reply",
+      requires_review: true,
+      reason: "Send the final approved support reply to the customer.",
+      payload: {},
+      created_at: "2026-04-28T02:00:00Z",
+      updated_at: "2026-04-28T02:00:00Z",
+    },
+  ],
+  executed_actions: [],
 };
 
 describe("Tickets routes", () => {
@@ -83,8 +134,7 @@ describe("Tickets routes", () => {
     runTicketMock.mockResolvedValue(runResult);
     fetchRunStateMock.mockResolvedValue({
       ...runResult,
-      current_node: "finalize_reply",
-      pending_review: null,
+      current_node: "human_review_interrupt",
       error: null,
     });
     fetchRunTimelineMock.mockResolvedValue({
@@ -178,6 +228,7 @@ describe("Tickets routes", () => {
     expect(fetchRunStateMock).toHaveBeenCalledWith("ticket-ticket-1002-1234abcd");
     expect(fetchRunTimelineMock).toHaveBeenCalledWith("ticket-ticket-1002-1234abcd");
     expect(screen.getByText("Current run state")).toBeInTheDocument();
+    expect(screen.getAllByText("send customer reply").length).toBeGreaterThan(0);
     expect(screen.getByText("Major steps")).toBeInTheDocument();
   });
 

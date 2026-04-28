@@ -41,5 +41,7 @@ def get_run_state(thread_id: str) -> RunStateResponse | None:
         review_decision=values.get("review_decision"),
         final_response=values.get("final_response"),
         pending_review=pending_review,
+        proposed_actions=values.get("proposed_actions", []),
+        executed_actions=values.get("executed_actions", []),
         error=values.get("error"),
     )

@@ -1,6 +1,8 @@
 from typing import Any, Literal
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
+
+from app.schemas.actions import SupportAction
 
 
 class TicketClassification(BaseModel):
@@ -47,6 +49,7 @@ class PendingReviewItem(BaseModel):
     draft: DraftReply
     retrieved_chunks: list[KBHit]
     risk_flags: list[str]
+    proposed_actions: list[SupportAction] = Field(default_factory=list)
     allowed_decisions: list[Literal["approve", "edit", "reject"]]
 
 
@@ -66,6 +69,8 @@ class RunTicketResponse(BaseModel):
     risk_assessment: RiskAssessment | None = None
     pending_review: PendingReviewItem | None = None
     final_response: FinalResponse | None = None
+    proposed_actions: list[SupportAction] = Field(default_factory=list)
+    executed_actions: list[SupportAction] = Field(default_factory=list)
 
 
 class RunTimelineEvent(BaseModel):
@@ -108,4 +113,6 @@ class RunStateResponse(BaseModel):
     review_decision: SubmitReviewDecisionRequest | None = None
     final_response: FinalResponse | None = None
     pending_review: PendingReviewItem | None = None
+    proposed_actions: list[SupportAction] = Field(default_factory=list)
+    executed_actions: list[SupportAction] = Field(default_factory=list)
     error: str | None = None
