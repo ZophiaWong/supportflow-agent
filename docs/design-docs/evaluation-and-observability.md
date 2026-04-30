@@ -1,7 +1,7 @@
 ---
 status: draft-v0.1
 owner: project-maintainer
-last_verified: 2026-04-26
+last_verified: 2026-04-30
 source_of_truth_for:
   - baseline comparison
   - offline evaluation design
@@ -205,6 +205,7 @@ Outputs:
 ```text
 data/evals/results/latest_summary.json
 data/evals/results/bad_cases.jsonl
+data/evals/results/latest_report.md
 data/evals/results/traces/<run_id>/events.jsonl
 ```
 
@@ -220,9 +221,10 @@ Current local output:
       "category_accuracy": null,
       "retrieval_hit_rate": 1.0,
       "citation_coverage": 1.0,
-      "review_trigger_accuracy": 0.3,
-      "final_pass_rate": 0.3,
-      "bad_case_count": 28
+      "review_trigger_accuracy": 0.0,
+      "expected_status_accuracy": 0.0,
+      "final_pass_rate": 0.0,
+      "bad_case_count": 40
     },
     {
       "target": "graph_v1",
@@ -230,20 +232,43 @@ Current local output:
       "retrieval_hit_rate": 1.0,
       "citation_coverage": 1.0,
       "review_trigger_accuracy": 1.0,
+      "expected_policy_accuracy": 1.0,
+      "expected_action_type_accuracy": null,
       "final_pass_rate": 1.0,
       "bad_case_count": 0
     }
   ],
   "bad_case_breakdown": {
     "plain_rag_baseline": {
-      "wrong_review_trigger": 14,
-      "wrong_status": 14
+      "wrong_review_trigger": 20,
+      "wrong_status": 20
+    }
+  },
+  "bad_case_breakdown_by_stage": {
+    "plain_rag_baseline": {
+      "finalization": 20,
+      "review_routing": 20
     }
   }
 }
 ```
 
-The local eval uses JSONL trace files by default. `trace_url` and `langsmith_enabled` are included in trace-related records so a later full LangSmith integration can reuse the artifact shape without changing downstream readers. As of Day 7, `graph_v1` has no bad cases on the fixed dataset; the remaining baseline failures are expected because `plain_rag_baseline` has no review gate or workflow status handling. `langsmith_enabled` becomes true only when LangSmith environment variables are present; local artifacts remain required either way.
+The local eval uses JSONL trace files by default. `trace_url` and `langsmith_enabled` are included in trace-related records so a later full LangSmith integration can reuse the artifact shape without changing downstream readers. As of 2026-04-30, `graph_v1` has no bad cases on the fixed dataset; the remaining baseline failures are expected because `plain_rag_baseline` has no review gate or workflow status handling. `langsmith_enabled` becomes true only when LangSmith environment variables are present; local artifacts remain required either way.
+
+The eval CLI supports CI-friendly thresholds against `graph_v1` by default:
+
+```text
+cd backend
+uv run --cache-dir /tmp/uv-cache python scripts/run_offline_eval.py --min-final-pass-rate 1.0 --min-citation-coverage 1.0 --min-policy-trigger-accuracy 1.0
+```
+
+The promotion helper drafts new fixtures under `data/evals/candidates/` without changing the checked-in dataset:
+
+```text
+cd backend
+uv run --cache-dir /tmp/uv-cache python scripts/promote_eval_case.py --ticket-id ticket-1001
+uv run --cache-dir /tmp/uv-cache python scripts/promote_eval_case.py --trace-file ../data/evals/results/traces/<run_id>/events.jsonl --example-id E-001
+```
 
 ## 9. Bad-case loop
 
@@ -254,6 +279,7 @@ Every failed eval should produce a bad case record:
   "example_id": "E-004",
   "target": "graph_v1",
   "failure_type": "wrong_review_trigger",
+  "failure_stage": "review_routing",
   "expected": { "should_trigger_review": true },
   "actual": { "review_required": false },
   "trace_url": null,

@@ -16,6 +16,16 @@ def _ticket_query(ticket: dict[str, object]) -> str:
     ).strip()
 
 
+def _action_statuses_by_type(actions: list[object]) -> dict[str, list[str]]:
+    statuses_by_type: dict[str, list[str]] = {}
+    for action in actions:
+        action_type = getattr(action, "action_type", None)
+        status = getattr(action, "status", None)
+        if isinstance(action_type, str) and isinstance(status, str):
+            statuses_by_type.setdefault(action_type, []).append(status)
+    return statuses_by_type
+
+
 def run_plain_rag_baseline(
     example: EvalExample, trace_writer: TraceWriter | None = None
 ) -> EvalTargetOutput:
@@ -69,7 +79,11 @@ def run_plain_rag_baseline(
         answer=answer,
         review_required=False,
         trace_url=trace_url,
-        metadata={"retrieval_query": _ticket_query(ticket)},
+        metadata={
+            "retrieval_query": _ticket_query(ticket),
+            "proposed_action_types": [],
+            "action_statuses_by_type": {},
+        },
     )
 
 
@@ -92,6 +106,8 @@ def run_graph_v1(example: EvalExample, trace_writer: TraceWriter | None = None) 
     final_response = result.get("final_response")
     risk_assessment = result.get("risk_assessment")
     policy_assessment = result.get("policy_assessment")
+    proposed_actions = result.get("proposed_actions", [])
+    action_statuses_by_type = _action_statuses_by_type(proposed_actions)
     interrupted = "__interrupt__" in result
     status = "waiting_review" if interrupted else result.get("status", "failed")
     review_required = (
@@ -126,6 +142,10 @@ def run_graph_v1(example: EvalExample, trace_writer: TraceWriter | None = None) 
                 "citations": citations,
                 "review_required": review_required,
                 "interrupted": interrupted,
+                "risk_flags": getattr(risk_assessment, "risk_flags", []),
+                "failed_policy_ids": getattr(policy_assessment, "failed_policy_ids", []),
+                "proposed_action_types": list(action_statuses_by_type),
+                "action_statuses_by_type": action_statuses_by_type,
             },
         )
 
@@ -145,6 +165,8 @@ def run_graph_v1(example: EvalExample, trace_writer: TraceWriter | None = None) 
             "thread_id": thread_id,
             "risk_flags": getattr(risk_assessment, "risk_flags", []),
             "failed_policy_ids": getattr(policy_assessment, "failed_policy_ids", []),
+            "proposed_action_types": list(action_statuses_by_type),
+            "action_statuses_by_type": action_statuses_by_type,
             "final_disposition": getattr(final_response, "disposition", None),
         },
     )

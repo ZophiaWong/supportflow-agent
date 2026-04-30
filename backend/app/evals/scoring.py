@@ -2,6 +2,7 @@ from app.evals.schemas import (
     BadCaseRecord,
     EvalExample,
     EvalExampleResult,
+    EvalFailureStage,
     EvalMetricResult,
     EvalRunSummary,
     EvalTargetOutput,
@@ -23,6 +24,7 @@ def _bad_case(
     example: EvalExample,
     output: EvalTargetOutput,
     failure_type: str,
+    failure_stage: EvalFailureStage,
     expected: dict[str, object],
     actual: dict[str, object],
     notes: str,
@@ -31,6 +33,7 @@ def _bad_case(
         example_id=example.id,
         target=output.target,
         failure_type=failure_type,
+        failure_stage=failure_stage,
         expected=expected,
         actual=actual,
         trace_url=output.trace_url,
@@ -59,6 +62,7 @@ def score_example(example: EvalExample, output: EvalTargetOutput) -> EvalExample
                     example=example,
                     output=output,
                     failure_type="wrong_category",
+                    failure_stage="classification",
                     expected={"category": reference.category},
                     actual={"category": output.category},
                     notes="Target classified the ticket differently than the fixed reference.",
@@ -102,6 +106,7 @@ def score_example(example: EvalExample, output: EvalTargetOutput) -> EvalExample
                 example=example,
                 output=output,
                 failure_type=failure_type,
+                failure_stage="retrieval",
                 expected={"should_retrieve_doc_ids": reference.should_retrieve_doc_ids},
                 actual={"retrieved_doc_ids": output.retrieved_doc_ids},
                 notes=(
@@ -127,6 +132,7 @@ def score_example(example: EvalExample, output: EvalTargetOutput) -> EvalExample
                 example=example,
                 output=output,
                 failure_type="missing_citation",
+                failure_stage="drafting",
                 expected={"must_include_citation": True},
                 actual={"citations": output.citations},
                 notes="Target did not include a citation for a citation-required example.",
@@ -148,6 +154,7 @@ def score_example(example: EvalExample, output: EvalTargetOutput) -> EvalExample
                 example=example,
                 output=output,
                 failure_type="wrong_review_trigger",
+                failure_stage="review_routing",
                 expected={"should_trigger_review": reference.should_trigger_review},
                 actual={"review_required": output.review_required},
                 notes="Target review behavior did not match the fixed reference.",
@@ -175,6 +182,7 @@ def score_example(example: EvalExample, output: EvalTargetOutput) -> EvalExample
                 example=example,
                 output=output,
                 failure_type="unsupported_claim_present",
+                failure_stage="drafting",
                 expected={"must_not_claim": reference.must_not_claim},
                 actual={"forbidden_claims_present": forbidden_claims},
                 notes="Target answer included a phrase that the reference forbids.",
@@ -197,6 +205,7 @@ def score_example(example: EvalExample, output: EvalTargetOutput) -> EvalExample
                     example=example,
                     output=output,
                     failure_type="wrong_status",
+                    failure_stage="finalization",
                     expected={"expected_status": reference.expected_status},
                     actual={"status": output.status},
                     notes="Target ended in a different workflow status than expected.",
@@ -233,6 +242,7 @@ def score_example(example: EvalExample, output: EvalTargetOutput) -> EvalExample
                         example=example,
                         output=output,
                         failure_type="missing_expected_risk_flag",
+                        failure_stage="policy",
                         expected={"expected_risk_flags": reference.expected_risk_flags},
                         actual={"risk_flags": actual_risk_flags, "missing": missing_flags},
                         notes="Target risk assessment did not include all expected risk flags.",
@@ -282,6 +292,7 @@ def score_example(example: EvalExample, output: EvalTargetOutput) -> EvalExample
                         example=example,
                         output=output,
                         failure_type="missing_expected_policy_id",
+                        failure_stage="policy",
                         expected={"expected_policy_ids": reference.expected_policy_ids},
                         actual={
                             "failed_policy_ids": actual_policy_ids,
@@ -310,6 +321,149 @@ def score_example(example: EvalExample, output: EvalTargetOutput) -> EvalExample
                 expected=[],
                 actual=output.metadata.get("failed_policy_ids"),
                 notes="Reference does not specify expected policy IDs.",
+            )
+        )
+
+    if reference.expected_action_types:
+        actual_action_types = output.metadata.get("proposed_action_types")
+        if isinstance(actual_action_types, list):
+            missing_action_types = sorted(
+                set(reference.expected_action_types) - set(actual_action_types)
+            )
+            action_types_passed = not missing_action_types
+            metrics.append(
+                _passed_metric(
+                    "expected_action_types",
+                    reference.expected_action_types,
+                    actual_action_types,
+                    action_types_passed,
+                )
+            )
+            if not action_types_passed:
+                bad_cases.append(
+                    _bad_case(
+                        example=example,
+                        output=output,
+                        failure_type="missing_expected_action_type",
+                        failure_stage="actions",
+                        expected={"expected_action_types": reference.expected_action_types},
+                        actual={
+                            "proposed_action_types": actual_action_types,
+                            "missing": missing_action_types,
+                        },
+                        notes="Target did not propose all expected support action types.",
+                    )
+                )
+        else:
+            metrics.append(
+                EvalMetricResult(
+                    name="expected_action_types",
+                    passed=None,
+                    score=None,
+                    expected=reference.expected_action_types,
+                    actual=None,
+                    notes="Target does not expose proposed action types.",
+                )
+            )
+    else:
+        metrics.append(
+            EvalMetricResult(
+                name="expected_action_types",
+                passed=None,
+                score=None,
+                expected=[],
+                actual=output.metadata.get("proposed_action_types"),
+                notes="Reference does not specify expected action types.",
+            )
+        )
+
+    if reference.expected_action_statuses:
+        actual_statuses_by_type = output.metadata.get("action_statuses_by_type")
+        if isinstance(actual_statuses_by_type, dict):
+            missing_statuses: dict[str, str] = {}
+            for action_type, expected_status in reference.expected_action_statuses.items():
+                actual_statuses = actual_statuses_by_type.get(action_type)
+                if not isinstance(actual_statuses, list) or expected_status not in actual_statuses:
+                    missing_statuses[action_type] = expected_status
+            action_statuses_passed = not missing_statuses
+            metrics.append(
+                _passed_metric(
+                    "expected_action_statuses",
+                    reference.expected_action_statuses,
+                    actual_statuses_by_type,
+                    action_statuses_passed,
+                )
+            )
+            if not action_statuses_passed:
+                bad_cases.append(
+                    _bad_case(
+                        example=example,
+                        output=output,
+                        failure_type="wrong_action_status",
+                        failure_stage="actions",
+                        expected={"expected_action_statuses": reference.expected_action_statuses},
+                        actual={
+                            "action_statuses_by_type": actual_statuses_by_type,
+                            "missing": missing_statuses,
+                        },
+                        notes="Target support action statuses did not match the fixed reference.",
+                    )
+                )
+        else:
+            metrics.append(
+                EvalMetricResult(
+                    name="expected_action_statuses",
+                    passed=None,
+                    score=None,
+                    expected=reference.expected_action_statuses,
+                    actual=None,
+                    notes="Target does not expose action statuses by type.",
+                )
+            )
+    else:
+        metrics.append(
+            EvalMetricResult(
+                name="expected_action_statuses",
+                passed=None,
+                score=None,
+                expected={},
+                actual=output.metadata.get("action_statuses_by_type"),
+                notes="Reference does not specify expected action statuses.",
+            )
+        )
+
+    if reference.expected_failure_stage is not None:
+        actual_failure_stages = sorted({bad_case.failure_stage for bad_case in bad_cases})
+        failure_stage_passed = reference.expected_failure_stage in actual_failure_stages
+        metrics.append(
+            _passed_metric(
+                "expected_failure_stage",
+                reference.expected_failure_stage,
+                actual_failure_stages,
+                failure_stage_passed,
+            )
+        )
+        if not failure_stage_passed:
+            bad_cases.append(
+                _bad_case(
+                    example=example,
+                    output=output,
+                    failure_type="expected_failure_stage_missing",
+                    failure_stage=reference.expected_failure_stage,
+                    expected={"expected_failure_stage": reference.expected_failure_stage},
+                    actual={"failure_stages": actual_failure_stages},
+                    notes="Target failures did not include the expected workflow stage.",
+                )
+            )
+    else:
+        metrics.append(
+            EvalMetricResult(
+                name="expected_failure_stage",
+                passed=None,
+                score=None,
+                expected=None,
+                actual=sorted({bad_case.failure_stage for bad_case in bad_cases}),
+                notes="Reference does not specify an expected failure stage.",
             )
         )
 
@@ -389,6 +543,9 @@ def summarize_results(
         expected_status_accuracy=_optional_rate(results, "expected_status"),
         expected_risk_flag_accuracy=_optional_rate(results, "expected_risk_flags"),
         expected_policy_accuracy=_optional_rate(results, "expected_policy_ids"),
+        expected_action_type_accuracy=_optional_rate(results, "expected_action_types"),
+        expected_action_status_accuracy=_optional_rate(results, "expected_action_statuses"),
+        expected_failure_stage_accuracy=_optional_rate(results, "expected_failure_stage"),
         final_pass_rate=_rate(results, "final_pass"),
         bad_case_count=bad_case_count,
         trace_events_path=trace_events_path,

@@ -83,6 +83,7 @@ Key backend files:
 - `backend/app/schemas/graph.py`: structured workflow request and response models
 - `backend/app/evals/`: offline eval schemas, target runners, scoring, tracing, and artifact writing
 - `backend/scripts/run_offline_eval.py`: CLI entrypoint for local eval comparison
+- `backend/scripts/promote_eval_case.py`: writes candidate eval fixtures from a ticket or trace for review
 
 ## Frontend
 
@@ -174,12 +175,32 @@ The command reads `data/evals/supportflow_v1.jsonl`, runs both `plain_rag_baseli
 Expected summary shape:
 
 ```text
-target=plain_rag_baseline examples=20 category_accuracy=null retrieval_hit_rate=1.00 citation_coverage=1.00 review_trigger_accuracy=0.30 final_pass_rate=0.30 bad_cases=28
+target=plain_rag_baseline examples=20 category_accuracy=null retrieval_hit_rate=1.00 citation_coverage=1.00 review_trigger_accuracy=0.00 final_pass_rate=0.00 bad_cases=40
 target=graph_v1 examples=20 category_accuracy=1.00 retrieval_hit_rate=1.00 citation_coverage=1.00 review_trigger_accuracy=1.00 final_pass_rate=1.00 bad_cases=0
 wrote data/evals/results/latest_summary.json
 wrote data/evals/results/bad_cases.jsonl
+wrote data/evals/results/latest_report.md
 wrote data/evals/results/traces/<run_id>/events.jsonl
 ```
+
+Bad case records include `failure_stage`, using plain workflow stages such as `classification`, `retrieval`, `drafting`, `policy`, `review_routing`, `actions`, and `finalization`. `latest_summary.json` and `latest_report.md` group failures by target and stage.
+
+Use thresholds for CI-friendly regression checks. Thresholds default to the `graph_v1` target:
+
+```bash
+cd backend
+uv run --cache-dir /tmp/uv-cache python scripts/run_offline_eval.py --min-final-pass-rate 1.0 --min-citation-coverage 1.0 --min-policy-trigger-accuracy 1.0
+```
+
+To draft a new eval fixture candidate without modifying the checked-in dataset:
+
+```bash
+cd backend
+uv run --cache-dir /tmp/uv-cache python scripts/promote_eval_case.py --ticket-id ticket-1001
+uv run --cache-dir /tmp/uv-cache python scripts/promote_eval_case.py --trace-file ../data/evals/results/traces/<run_id>/events.jsonl --example-id E-001
+```
+
+The promotion command writes one JSONL candidate under `data/evals/candidates/`. Review that candidate before adding it to `data/evals/supportflow_v1.jsonl`.
 
 `data/evals/results/` is ignored by git because it is generated output. Keep `data/evals/supportflow_v1.jsonl` and `data/evals/supportflow_tickets.json` checked in as the fixed eval source data.
 

@@ -13,6 +13,7 @@ frontend/coverage/
 
 # Generated offline evaluation outputs
 data/evals/results/
+data/evals/candidates/
 
 # Local durable workflow state
 data/*.sqlite3

@@ -4,6 +4,15 @@ from pydantic import BaseModel, Field
 
 
 EvalTargetName = Literal["plain_rag_baseline", "graph_v1"]
+EvalFailureStage = Literal[
+    "classification",
+    "retrieval",
+    "drafting",
+    "policy",
+    "review_routing",
+    "actions",
+    "finalization",
+]
 
 
 class EvalInputs(BaseModel):
@@ -19,6 +28,9 @@ class EvalReferenceOutputs(BaseModel):
     expected_risk_flags: list[str] = Field(default_factory=list)
     expected_policy_ids: list[str] = Field(default_factory=list)
     expected_status: Literal["done", "waiting_review", "manual_takeover", "failed"] | None = None
+    expected_action_types: list[str] = Field(default_factory=list)
+    expected_action_statuses: dict[str, str] = Field(default_factory=dict)
+    expected_failure_stage: EvalFailureStage | None = None
 
 
 class EvalExample(BaseModel):
@@ -53,6 +65,9 @@ class EvalMetricResult(BaseModel):
         "expected_status",
         "expected_risk_flags",
         "expected_policy_ids",
+        "expected_action_types",
+        "expected_action_statuses",
+        "expected_failure_stage",
         "final_pass",
     ]
     passed: bool | None
@@ -66,6 +81,7 @@ class BadCaseRecord(BaseModel):
     example_id: str
     target: EvalTargetName
     failure_type: str
+    failure_stage: EvalFailureStage
     expected: dict[str, Any]
     actual: dict[str, Any]
     trace_url: str | None = None
@@ -95,6 +111,9 @@ class EvalRunSummary(BaseModel):
     expected_status_accuracy: float | None
     expected_risk_flag_accuracy: float | None
     expected_policy_accuracy: float | None
+    expected_action_type_accuracy: float | None
+    expected_action_status_accuracy: float | None
+    expected_failure_stage_accuracy: float | None
     final_pass_rate: float
     bad_case_count: int
     trace_events_path: str

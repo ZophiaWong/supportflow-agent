@@ -30,6 +30,54 @@ def _bad_case_breakdown(all_bad_cases: list[BadCaseRecord]) -> dict[str, dict[st
     }
 
 
+def _bad_case_stage_breakdown(all_bad_cases: list[BadCaseRecord]) -> dict[str, dict[str, int]]:
+    counts: dict[str, Counter[str]] = defaultdict(Counter)
+    for bad_case in all_bad_cases:
+        counts[bad_case.target][bad_case.failure_stage] += 1
+    return {
+        target: dict(sorted(counter.items()))
+        for target, counter in sorted(counts.items())
+    }
+
+
+def _write_markdown_report(
+    path: Path,
+    *,
+    summaries: list[EvalRunSummary],
+    bad_cases: list[BadCaseRecord],
+) -> None:
+    cases_by_target_stage: dict[tuple[str, str], list[BadCaseRecord]] = defaultdict(list)
+    for bad_case in bad_cases:
+        cases_by_target_stage[(bad_case.target, bad_case.failure_stage)].append(bad_case)
+
+    lines = [
+        "# Offline Eval Report",
+        "",
+        "## Summary",
+        "",
+        "| Target | Examples | Final pass rate | Bad cases |",
+        "| --- | ---: | ---: | ---: |",
+    ]
+    for summary in summaries:
+        lines.append(
+            f"| {summary.target} | {summary.num_examples} | "
+            f"{summary.final_pass_rate:.2f} | {summary.bad_case_count} |"
+        )
+
+    lines.extend(["", "## Bad Cases by Stage", ""])
+    if not bad_cases:
+        lines.append("No bad cases.")
+    else:
+        for (target, stage), cases in sorted(cases_by_target_stage.items()):
+            lines.append(f"### {target}: {stage}")
+            lines.append("")
+            for case in cases:
+                lines.append(f"- {case.example_id}: {case.failure_type} - {case.notes}")
+            lines.append("")
+
+    path.write_text("\n".join(lines).rstrip() + "\n")
+
+
 def run_offline_eval(
     dataset_path: Path,
     output_dir: Path,
@@ -74,6 +122,7 @@ def run_offline_eval(
         "generated_at": datetime.now(UTC).isoformat(),
         "trace_events_path": str(trace_writer.events_path),
         "bad_case_breakdown": _bad_case_breakdown(all_bad_cases),
+        "bad_case_breakdown_by_stage": _bad_case_stage_breakdown(all_bad_cases),
         "targets": [summary.model_dump(mode="json") for summary in summaries],
     }
     _write_json(output_dir / "latest_summary.json", summary_payload)
@@ -82,5 +131,11 @@ def run_offline_eval(
     with bad_cases_path.open("w") as handle:
         for bad_case in all_bad_cases:
             handle.write(json.dumps(bad_case.model_dump(mode="json"), sort_keys=True) + "\n")
+
+    _write_markdown_report(
+        output_dir / "latest_report.md",
+        summaries=summaries,
+        bad_cases=all_bad_cases,
+    )
 
     return summaries
