@@ -238,6 +238,17 @@ The promotion command writes one JSONL candidate under `data/evals/candidates/`.
 
 `data/evals/results/` is ignored by git because it is generated output. Keep `data/evals/supportflow_v1.jsonl` and `data/evals/supportflow_tickets.json` checked in as the fixed eval source data.
 
+## Draw the LangGraph
+
+Generate a local Mermaid diagram from the currently compiled LangGraph:
+
+```bash
+cd backend
+uv run --cache-dir /tmp/uv-cache python scripts/draw_langgraph.py
+```
+
+The default output is `docs/generated/current-langgraph.md`. Pass `--output ../docs/generated/current-langgraph.mmd` to write raw Mermaid instead of Markdown.
+
 ## Tests
 
 Backend:

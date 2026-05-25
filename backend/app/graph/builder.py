@@ -55,9 +55,23 @@ def get_support_graph():
     builder.add_edge("retrieve_knowledge", "draft_reply")
     builder.add_edge("draft_reply", "propose_actions")
     builder.add_edge("propose_actions", "risk_gate")
-    builder.add_conditional_edges("risk_gate", _route_after_risk_gate)
+    builder.add_conditional_edges(
+        "risk_gate",
+        _route_after_risk_gate,
+        {
+            "human_review_interrupt": "human_review_interrupt",
+            "finalize_reply": "finalize_reply",
+        },
+    )
     builder.add_edge("human_review_interrupt", "apply_review_decision")
-    builder.add_conditional_edges("apply_review_decision", _route_after_review_decision)
+    builder.add_conditional_edges(
+        "apply_review_decision",
+        _route_after_review_decision,
+        {
+            "manual_takeover": "manual_takeover",
+            "finalize_reply": "finalize_reply",
+        },
+    )
     builder.add_edge("finalize_reply", END)
     builder.add_edge("manual_takeover", END)
 
