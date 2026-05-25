@@ -164,6 +164,14 @@ export function ReviewDetailPage() {
                       <strong>{hit.title}</strong>
                       <span>Score {hit.score.toFixed(2)}</span>
                     </div>
+                    <p className="draft-meta">
+                      {hit.category ? `Category ${hit.category}` : "Category unknown"} |{" "}
+                      {hit.category_match ? "category match" : "category not matched"} | Boost{" "}
+                      {(hit.category_boost ?? 0).toFixed(2)}
+                    </p>
+                    {(hit.matched_terms ?? []).length > 0 ? (
+                      <p className="draft-meta">Matched terms: {(hit.matched_terms ?? []).join(", ")}</p>
+                    ) : null}
                     <p>{hit.snippet}</p>
                   </li>
                 ))}

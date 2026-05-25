@@ -1,3 +1,5 @@
+import re
+
 from app.evals.schemas import (
     BadCaseRecord,
     EvalExample,
@@ -7,6 +9,9 @@ from app.evals.schemas import (
     EvalRunSummary,
     EvalTargetOutput,
 )
+
+WORD_RE = re.compile(r"[a-z0-9]+")
+MIN_CITATION_OVERLAP = 1
 
 
 def _passed_metric(name: str, expected: object, actual: object, passed: bool) -> EvalMetricResult:
@@ -39,6 +44,52 @@ def _bad_case(
         trace_url=output.trace_url,
         notes=notes,
     )
+
+
+def _tokenize_for_support(text: str) -> set[str]:
+    return {
+        token
+        for token in WORD_RE.findall(text.lower())
+        if len(token) >= 4
+    }
+
+
+def _citation_support_result(
+    *,
+    output: EvalTargetOutput,
+    citation_required: bool,
+) -> tuple[bool, dict[str, object]]:
+    cited_doc_ids = set(output.citations)
+    retrieved_doc_ids = set(output.retrieved_doc_ids)
+    unknown_citations = sorted(cited_doc_ids - retrieved_doc_ids)
+    evidence_by_doc_id = output.metadata.get("retrieved_evidence_by_doc_id", {})
+    answer_terms = _tokenize_for_support(output.answer or "")
+
+    supported_citations: list[str] = []
+    unsupported_citations: list[str] = []
+    if isinstance(evidence_by_doc_id, dict):
+        for citation in output.citations:
+            evidence = evidence_by_doc_id.get(citation)
+            evidence_terms = _tokenize_for_support(evidence if isinstance(evidence, str) else "")
+            if answer_terms & evidence_terms:
+                supported_citations.append(citation)
+            else:
+                unsupported_citations.append(citation)
+    else:
+        unsupported_citations = list(output.citations)
+
+    if not output.citations:
+        passed = not citation_required
+    else:
+        passed = not unknown_citations and bool(supported_citations)
+
+    return passed, {
+        "citations": output.citations,
+        "retrieved_doc_ids": output.retrieved_doc_ids,
+        "unknown_citations": unknown_citations,
+        "supported_citations": supported_citations,
+        "unsupported_citations": unsupported_citations,
+    }
 
 
 def score_example(example: EvalExample, output: EvalTargetOutput) -> EvalExampleResult:
@@ -136,6 +187,37 @@ def score_example(example: EvalExample, output: EvalTargetOutput) -> EvalExample
                 expected={"must_include_citation": True},
                 actual={"citations": output.citations},
                 notes="Target did not include a citation for a citation-required example.",
+            )
+        )
+
+    citation_support_passed, citation_support_actual = _citation_support_result(
+        output=output,
+        citation_required=reference.must_include_citation,
+    )
+    metrics.append(
+        _passed_metric(
+            "citation_support",
+            {
+                "citations_reference_retrieved_docs": True,
+                "citation_required": reference.must_include_citation,
+            },
+            citation_support_actual,
+            citation_support_passed,
+        )
+    )
+    if not citation_support_passed:
+        bad_cases.append(
+            _bad_case(
+                example=example,
+                output=output,
+                failure_type="unsupported_citation",
+                failure_stage="drafting",
+                expected={
+                    "citations_reference_retrieved_docs": True,
+                    "citation_required": reference.must_include_citation,
+                },
+                actual=citation_support_actual,
+                notes="Target citations were missing, unknown, or unsupported by retrieved evidence.",
             )
         )
 
@@ -538,6 +620,7 @@ def summarize_results(
         category_accuracy=_rate(results, "category_accuracy") if category_supported else None,
         retrieval_hit_rate=_rate(results, "retrieval_hit"),
         citation_coverage=_rate(results, "citation_coverage"),
+        citation_support_rate=_rate(results, "citation_support"),
         review_trigger_accuracy=_rate(results, "review_trigger_accuracy"),
         unsupported_claim_absence=_rate(results, "unsupported_claim_absent"),
         expected_status_accuracy=_optional_rate(results, "expected_status"),

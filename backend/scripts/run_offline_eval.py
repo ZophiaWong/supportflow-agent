@@ -94,6 +94,7 @@ def main() -> None:
             f"category_accuracy={category_accuracy} "
             f"retrieval_hit_rate={summary.retrieval_hit_rate:.2f} "
             f"citation_coverage={summary.citation_coverage:.2f} "
+            f"citation_support_rate={summary.citation_support_rate:.2f} "
             f"review_trigger_accuracy={summary.review_trigger_accuracy:.2f} "
             f"final_pass_rate={summary.final_pass_rate:.2f} "
             f"bad_cases={summary.bad_case_count}"

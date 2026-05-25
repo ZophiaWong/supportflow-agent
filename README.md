@@ -175,8 +175,8 @@ The command reads `data/evals/supportflow_v1.jsonl`, runs both `plain_rag_baseli
 Expected summary shape:
 
 ```text
-target=plain_rag_baseline examples=20 category_accuracy=null retrieval_hit_rate=1.00 citation_coverage=1.00 review_trigger_accuracy=0.00 final_pass_rate=0.00 bad_cases=40
-target=graph_v1 examples=20 category_accuracy=1.00 retrieval_hit_rate=1.00 citation_coverage=1.00 review_trigger_accuracy=1.00 final_pass_rate=1.00 bad_cases=0
+target=plain_rag_baseline examples=20 category_accuracy=null retrieval_hit_rate=1.00 citation_coverage=1.00 citation_support_rate=1.00 review_trigger_accuracy=0.00 final_pass_rate=0.00 bad_cases=40
+target=graph_v1 examples=20 category_accuracy=1.00 retrieval_hit_rate=1.00 citation_coverage=1.00 citation_support_rate=1.00 review_trigger_accuracy=1.00 final_pass_rate=1.00 bad_cases=0
 wrote data/evals/results/latest_summary.json
 wrote data/evals/results/bad_cases.jsonl
 wrote data/evals/results/latest_report.md
@@ -184,6 +184,15 @@ wrote data/evals/results/traces/<run_id>/events.jsonl
 ```
 
 Bad case records include `failure_stage`, using plain workflow stages such as `classification`, `retrieval`, `drafting`, `policy`, `review_routing`, `actions`, and `finalization`. `latest_summary.json` and `latest_report.md` group failures by target and stage.
+
+KB retrieval is backed by Markdown front matter under `data/kb/`. Validate the KB metadata from the backend directory:
+
+```bash
+cd backend
+uv run --cache-dir /tmp/uv-cache python -m app.services.kb_ingestion
+```
+
+Workflow responses include retrieval diagnostics on each KB hit, including matched terms, category match, category boost, document metadata, and citation id.
 
 Use thresholds for CI-friendly regression checks. Thresholds default to the `graph_v1` target:
 

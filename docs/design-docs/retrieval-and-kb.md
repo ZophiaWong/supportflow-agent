@@ -1,7 +1,7 @@
 ---
 status: draft-v0.1
 owner: project-maintainer
-last_verified: 2026-04-24
+last_verified: 2026-04-30
 source_of_truth_for:
   - knowledge base scope
   - ingestion
@@ -73,9 +73,10 @@ Recommended frontmatter:
 doc_id: refund_policy
 title: Refund Policy
 category: billing
-version: 2026-04-24
-source: demo
-owner: support-ops
+source_owner: billing-ops
+effective_date: 2026-04-27
+freshness: current
+policy_severity: high
 ---
 ```
 
@@ -83,18 +84,18 @@ Required metadata after ingestion:
 
 ```python
 class KBDocument(BaseModel):
-    doc_id: str
-    title: str
-    category: str
+    metadata: KBDocumentMetadata
+    content: str
     source_path: str
-    version: str | None = None
 
-class KBChunk(BaseModel):
-    chunk_id: str
+class KBDocumentMetadata(BaseModel):
     doc_id: str
     title: str
-    text: str
-    metadata: dict
+    category: Literal["billing", "account", "product", "bug", "other"]
+    source_owner: str
+    effective_date: str
+    freshness: Literal["current", "stale", "draft"]
+    policy_severity: Literal["low", "medium", "high"]
 ```
 
 ## 5. Chunking baseline
@@ -138,11 +139,18 @@ Outputs:
 ```python
 class KBHit(BaseModel):
     doc_id: str
-    chunk_id: str
     title: str
     score: float
     snippet: str
-    source_path: str | None = None
+    category: str | None = None
+    source_owner: str | None = None
+    effective_date: str | None = None
+    freshness: str | None = None
+    policy_severity: str | None = None
+    matched_terms: list[str] = []
+    category_match: bool = False
+    category_boost: float = 0.0
+    citation_id: str | None = None
 ```
 
 Baseline retrieval rules:
@@ -154,7 +162,7 @@ Baseline retrieval rules:
 - without a category match, a document needs at least two meaningful overlapping tokens
 - return empty list explicitly when no hit
 
-The current document categories are defined in `backend/app/services/retrieval.py`: `refund_policy` is billing, `account_unlock` is account, `annual_plan_seats` is product, and `bug_export_issue` is bug. The graph passes classification category separately to retrieval; it does not prepend category text to the free-text query.
+The current document metadata is defined in front matter inside `data/kb/*.md` and validated by `backend/app/services/kb_ingestion.py`. The graph passes classification category separately to retrieval; it does not prepend category text to the free-text query. Retrieval diagnostics are returned on each `KBHit`, including matched terms, category match, category boost, and citation id.
 
 ## 7. Retrieval v1
 
@@ -260,6 +268,7 @@ Track these metrics:
 | -------------------------- | ------------------------------------------------------------- |
 | retrieval_hit_rate         | percentage of tickets with at least one KB hit                |
 | citation_coverage          | percentage of drafts with citations                           |
+| citation_support_rate      | percentage of citations that reference retrieved KB evidence  |
 | evidence_precision_sampled | sampled reviewer judgment on whether evidence supports answer |
 | no_evidence_review_rate    | review rate caused by missing evidence                        |
 | avg_top_score              | retrieval confidence proxy                                    |

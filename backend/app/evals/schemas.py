@@ -60,6 +60,7 @@ class EvalMetricResult(BaseModel):
         "category_accuracy",
         "retrieval_hit",
         "citation_coverage",
+        "citation_support",
         "review_trigger_accuracy",
         "unsupported_claim_absent",
         "expected_status",
@@ -106,6 +107,7 @@ class EvalRunSummary(BaseModel):
     category_accuracy: float | None
     retrieval_hit_rate: float
     citation_coverage: float
+    citation_support_rate: float
     review_trigger_accuracy: float
     unsupported_claim_absence: float
     expected_status_accuracy: float | None

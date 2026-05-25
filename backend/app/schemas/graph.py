@@ -16,6 +16,15 @@ class KBHit(BaseModel):
     title: str
     score: float
     snippet: str
+    category: Literal["billing", "account", "product", "bug", "other"] | None = None
+    source_owner: str | None = None
+    effective_date: str | None = None
+    freshness: Literal["current", "stale", "draft"] | None = None
+    policy_severity: Literal["low", "medium", "high"] | None = None
+    matched_terms: list[str] = Field(default_factory=list)
+    category_match: bool = False
+    category_boost: float = 0.0
+    citation_id: str | None = None
 
 
 class DraftReply(BaseModel):

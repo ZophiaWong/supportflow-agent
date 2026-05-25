@@ -1,17 +1,9 @@
 import re
-from functools import lru_cache
-from pathlib import Path
 
 from app.schemas.graph import KBHit
+from app.services.kb_ingestion import KBDocument, load_kb_documents
 
-KB_PATH = Path(__file__).resolve().parents[3] / "data" / "kb"
 WORD_RE = re.compile(r"[a-z0-9]+")
-DOC_CATEGORIES = {
-    "account_unlock": "account",
-    "annual_plan_seats": "product",
-    "bug_export_issue": "bug",
-    "refund_policy": "billing",
-}
 STOPWORDS = {
     "about",
     "after",
@@ -57,6 +49,7 @@ SUPPORT_GENERIC_TERMS = {
 MIN_TOKEN_LENGTH = 3
 MIN_OVERLAP_WITHOUT_CATEGORY = 2
 MIN_SCORE = 0.1
+CATEGORY_BOOST = 0.35
 
 
 def _tokenize(text: str) -> set[str]:
@@ -69,14 +62,6 @@ def _tokenize(text: str) -> set[str]:
     }
 
 
-def _extract_title(content: str, path: Path) -> str:
-    for line in content.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("# "):
-            return stripped.removeprefix("# ").strip()
-    return path.stem.replace("_", " ").title()
-
-
 def _extract_snippet(content: str) -> str:
     for block in content.split("\n\n"):
         snippet = block.strip()
@@ -85,21 +70,15 @@ def _extract_snippet(content: str) -> str:
     return content.strip().replace("\n", " ")[:220]
 
 
-@lru_cache(maxsize=1)
-def _load_kb_documents() -> tuple[dict[str, str], ...]:
-    documents: list[dict[str, str]] = []
-    for path in sorted(KB_PATH.glob("*.md")):
-        content = path.read_text()
-        documents.append(
-            {
-                "doc_id": path.stem,
-                "title": _extract_title(content, path),
-                "content": content,
-                "snippet": _extract_snippet(content),
-                "category": DOC_CATEGORIES.get(path.stem, "other"),
-            }
-        )
-    return tuple(documents)
+def _searchable_text(document: KBDocument) -> str:
+    return " ".join(
+        [
+            document.title,
+            document.content,
+            document.doc_id.replace("_", " "),
+            document.metadata.source_owner,
+        ]
+    )
 
 
 def retrieve_knowledge(
@@ -113,29 +92,37 @@ def retrieve_knowledge(
         return []
 
     scored_hits: list[tuple[float, KBHit]] = []
-    for document in _load_kb_documents():
-        searchable_text = " ".join(
-            [document["title"], document["content"], document["doc_id"].replace("_", " ")]
-        )
-        document_terms = _tokenize(searchable_text)
+    for document in load_kb_documents():
+        document_terms = _tokenize(_searchable_text(document))
         overlap = query_terms & document_terms
         if not overlap:
             continue
 
-        category_matches = category is not None and category == document["category"]
+        category_matches = category is not None and category == document.category
         if not category_matches and len(overlap) < MIN_OVERLAP_WITHOUT_CATEGORY:
             continue
 
         raw_score = len(overlap) / len(query_terms)
-        score = round(raw_score + (0.35 if category_matches else 0.0), 4)
+        category_boost = CATEGORY_BOOST if category_matches else 0.0
+        score = round(raw_score + category_boost, 4)
         if score < MIN_SCORE:
             continue
 
+        metadata = document.metadata
         hit = KBHit(
-            doc_id=document["doc_id"],
-            title=document["title"],
+            doc_id=document.doc_id,
+            title=document.title,
             score=score,
-            snippet=document["snippet"],
+            snippet=_extract_snippet(document.content),
+            category=metadata.category,
+            source_owner=metadata.source_owner,
+            effective_date=metadata.effective_date,
+            freshness=metadata.freshness,
+            policy_severity=metadata.policy_severity,
+            matched_terms=sorted(overlap),
+            category_match=category_matches,
+            category_boost=category_boost,
+            citation_id=document.doc_id,
         )
         scored_hits.append((score, hit))
 

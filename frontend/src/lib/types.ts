@@ -44,6 +44,15 @@ export interface KBHit {
   title: string;
   score: number;
   snippet: string;
+  category?: WorkflowCategory | null;
+  source_owner?: string | null;
+  effective_date?: string | null;
+  freshness?: "current" | "stale" | "draft" | null;
+  policy_severity?: "low" | "medium" | "high" | null;
+  matched_terms?: string[];
+  category_match?: boolean;
+  category_boost?: number;
+  citation_id?: string | null;
 }
 
 export interface DraftReply {

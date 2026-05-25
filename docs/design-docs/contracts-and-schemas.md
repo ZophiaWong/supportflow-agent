@@ -79,11 +79,18 @@ class TicketClassification(BaseModel):
 
 class KBHit(BaseModel):
     doc_id: str
-    chunk_id: str
     title: str
     score: float
     snippet: str
-    source_path: str | None = None
+    category: Literal["billing", "account", "product", "bug", "other"] | None = None
+    source_owner: str | None = None
+    effective_date: str | None = None
+    freshness: Literal["current", "stale", "draft"] | None = None
+    policy_severity: Literal["low", "medium", "high"] | None = None
+    matched_terms: list[str] = []
+    category_match: bool = False
+    category_boost: float = 0.0
+    citation_id: str | None = None
 
 class DraftReply(BaseModel):
     answer: str
@@ -156,7 +163,7 @@ Output:
 Validation rules:
 
 - `retrieved_chunks` may be empty, but must be explicit.
-- Each `KBHit` must include `doc_id`, `chunk_id`, `score`, and `snippet`.
+- Each `KBHit` must include `doc_id`, `title`, `score`, and `snippet`; diagnostics such as `matched_terms`, `category_match`, and `category_boost` are included when available.
 - Snippet length should be bounded for frontend rendering.
 
 ### `draft_reply`
@@ -336,11 +343,18 @@ export type TicketClassification = {
 
 export type KBHit = {
   doc_id: string;
-  chunk_id: string;
   title: string;
   score: number;
   snippet: string;
-  source_path?: string | null;
+  category?: "billing" | "account" | "product" | "bug" | "other" | null;
+  source_owner?: string | null;
+  effective_date?: string | null;
+  freshness?: "current" | "stale" | "draft" | null;
+  policy_severity?: "low" | "medium" | "high" | null;
+  matched_terms?: string[];
+  category_match?: boolean;
+  category_boost?: number;
+  citation_id?: string | null;
 };
 
 export type DraftReply = {

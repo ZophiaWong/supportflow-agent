@@ -42,6 +42,10 @@ def run_plain_rag_baseline(
 
     hits = retrieve_knowledge(_ticket_query(ticket))
     retrieved_doc_ids = [hit.doc_id for hit in hits]
+    retrieved_evidence_by_doc_id = {
+        hit.doc_id: f"{hit.title} {hit.snippet}"
+        for hit in hits
+    }
     citations = retrieved_doc_ids[:1]
     trace_url = None
     lead_title = hits[0].title if hits else "the available support guidance"
@@ -81,6 +85,7 @@ def run_plain_rag_baseline(
         trace_url=trace_url,
         metadata={
             "retrieval_query": _ticket_query(ticket),
+            "retrieved_evidence_by_doc_id": retrieved_evidence_by_doc_id,
             "proposed_action_types": [],
             "action_statuses_by_type": {},
         },
@@ -126,6 +131,10 @@ def run_graph_v1(example: EvalExample, trace_writer: TraceWriter | None = None) 
         else getattr(draft, "answer", None)
     )
     retrieved_doc_ids = [hit.doc_id for hit in retrieved_chunks]
+    retrieved_evidence_by_doc_id = {
+        hit.doc_id: f"{hit.title} {hit.snippet}"
+        for hit in retrieved_chunks
+    }
     trace_url = None
 
     if trace_writer is not None:
@@ -139,6 +148,7 @@ def run_graph_v1(example: EvalExample, trace_writer: TraceWriter | None = None) 
                 "thread_id": thread_id,
                 "category": getattr(classification, "category", None),
                 "retrieved_doc_ids": retrieved_doc_ids,
+                "retrieved_evidence_by_doc_id": retrieved_evidence_by_doc_id,
                 "citations": citations,
                 "review_required": review_required,
                 "interrupted": interrupted,
@@ -163,6 +173,7 @@ def run_graph_v1(example: EvalExample, trace_writer: TraceWriter | None = None) 
         trace_url=trace_url,
         metadata={
             "thread_id": thread_id,
+            "retrieved_evidence_by_doc_id": retrieved_evidence_by_doc_id,
             "risk_flags": getattr(risk_assessment, "risk_flags", []),
             "failed_policy_ids": getattr(policy_assessment, "failed_policy_ids", []),
             "proposed_action_types": list(action_statuses_by_type),

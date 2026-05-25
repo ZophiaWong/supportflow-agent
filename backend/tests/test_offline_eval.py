@@ -52,6 +52,7 @@ def test_baseline_scores_review_trigger_failures_without_category_accuracy() -> 
     assert metrics_by_name["category_accuracy"].score is None
     assert metrics_by_name["retrieval_hit"].passed is True
     assert metrics_by_name["citation_coverage"].passed is True
+    assert metrics_by_name["citation_support"].passed is True
     assert metrics_by_name["review_trigger_accuracy"].passed is False
     assert result.final_pass is False
     assert [case.failure_type for case in result.bad_cases] == [
@@ -121,6 +122,34 @@ def test_expected_status_scoring_detects_wrong_status() -> None:
     result = score_example(example, output)
 
     assert "wrong_status" in {bad_case.failure_type for bad_case in result.bad_cases}
+
+
+def test_citation_support_scoring_detects_unknown_citation() -> None:
+    example = load_eval_dataset(DATASET_PATH)[0]
+    output = EvalTargetOutput(
+        target="graph_v1",
+        example_id=example.id,
+        ticket_id=example.inputs.ticket_id,
+        status="waiting_review",
+        category="billing",
+        category_supported=True,
+        retrieved_doc_ids=["refund_policy"],
+        citations=["unknown_policy"],
+        answer="This answer cites an unknown policy.",
+        review_required=True,
+        metadata={
+            "risk_flags": ["priority_requires_review"],
+            "failed_policy_ids": ["priority_requires_review"],
+            "retrieved_evidence_by_doc_id": {"refund_policy": "Refund Policy duplicate charge"},
+        },
+    )
+
+    result = score_example(example, output)
+
+    assert "unsupported_citation" in {
+        bad_case.failure_type for bad_case in result.bad_cases
+    }
+    assert result.final_pass is False
 
 
 def test_action_expectation_scoring_detects_missing_action_type_and_status() -> None:
@@ -206,6 +235,7 @@ def test_offline_eval_writes_summary_bad_cases_and_traces(tmp_path: Path, monkey
     assert graph_summary.final_pass_rate > baseline_summary.final_pass_rate
     assert graph_summary.expected_risk_flag_accuracy is not None
     assert graph_summary.expected_policy_accuracy is not None
+    assert graph_summary.citation_support_rate == 1.0
 
     summary_path = tmp_path / "latest_summary.json"
     bad_cases_path = tmp_path / "bad_cases.jsonl"
@@ -221,6 +251,7 @@ def test_offline_eval_writes_summary_bad_cases_and_traces(tmp_path: Path, monkey
     assert summary_payload["run_id"] == graph_summary.run_id
     assert summary_payload["num_examples"] == 20
     assert summary_payload["targets"][0]["category_accuracy"] is None
+    assert summary_payload["targets"][1]["citation_support_rate"] == 1.0
     assert "bad_case_breakdown" in summary_payload
     assert summary_payload["bad_case_breakdown_by_stage"]["plain_rag_baseline"] == {
         "finalization": 20,
