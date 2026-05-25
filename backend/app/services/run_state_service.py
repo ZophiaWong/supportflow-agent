@@ -2,6 +2,7 @@ from typing import Any
 
 from app.graph.builder import get_support_graph
 from app.schemas.graph import PendingReviewItem, RunStateResponse
+from app.services.run_event_store import get_run_event_store
 
 
 def _extract_pending_review(interrupts: tuple[Any, ...]) -> PendingReviewItem | None:
@@ -19,7 +20,26 @@ def get_run_state(thread_id: str) -> RunStateResponse | None:
     values = snapshot.values
 
     if not values:
-        return None
+        ticket_id = get_run_event_store().get_thread_ticket_id(thread_id)
+        if ticket_id is None:
+            return None
+        return RunStateResponse(
+            thread_id=thread_id,
+            ticket_id=ticket_id,
+            status="running",
+            current_node=None,
+            classification=None,
+            retrieved_chunks=[],
+            draft=None,
+            risk_assessment=None,
+            policy_assessment=None,
+            review_decision=None,
+            final_response=None,
+            pending_review=None,
+            proposed_actions=[],
+            executed_actions=[],
+            error=None,
+        )
 
     pending_review = _extract_pending_review(snapshot.interrupts)
     status = values["status"]

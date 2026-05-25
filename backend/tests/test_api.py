@@ -8,6 +8,7 @@ from app.api.v1.runs import (
     read_run_trace,
     resume_run,
     run_ticket,
+    start_ticket_run,
 )
 from app.api.v1.tickets import list_tickets
 from app.main import app
@@ -43,6 +44,7 @@ def test_app_registers_expected_routes() -> None:
     assert "/healthz" in route_paths
     assert "/api/v1/tickets" in route_paths
     assert "/api/v1/tickets/{ticket_id}/run" in route_paths
+    assert "/api/v1/tickets/{ticket_id}/runs/start" in route_paths
     assert "/api/v1/runs/{thread_id}/resume" in route_paths
     assert "/api/v1/runs/{thread_id}/state" in route_paths
     assert "/api/v1/runs/{thread_id}/timeline" in route_paths
@@ -86,6 +88,25 @@ def test_run_ticket_returns_waiting_review_for_low_risk_customer_send() -> None:
     assert payload.proposed_actions[0].action_type == "send_customer_reply"
     assert payload.proposed_actions[0].status == "proposed"
     assert payload.proposed_actions[0].requires_review is True
+
+
+def test_start_ticket_run_returns_thread_before_background_execution() -> None:
+    from fastapi import BackgroundTasks
+
+    tasks = BackgroundTasks()
+
+    payload = start_ticket_run("ticket-1003", tasks)
+
+    assert payload.ticket_id == "ticket-1003"
+    assert payload.status == "running"
+    assert payload.thread_id.startswith("ticket-ticket-1003-")
+
+    state = read_run_state(payload.thread_id)
+    trace = read_run_trace(payload.thread_id)
+
+    assert state.status == "running"
+    assert state.ticket_id == "ticket-1003"
+    assert trace.events == []
 
 
 def test_pending_review_endpoint_lists_waiting_items() -> None:

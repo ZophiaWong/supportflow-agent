@@ -7,6 +7,7 @@ The current repository state is the post-MVP workflow portfolio slice:
 - FastAPI backend with `GET /healthz`
 - FastAPI ticket list endpoint at `GET /api/v1/tickets`
 - FastAPI workflow run endpoint at `POST /api/v1/tickets/{ticket_id}/run`
+- FastAPI non-blocking workflow start endpoint at `POST /api/v1/tickets/{ticket_id}/runs/start`
 - FastAPI run state endpoint at `GET /api/v1/runs/{thread_id}/state`
 - FastAPI run timeline endpoint at `GET /api/v1/runs/{thread_id}/timeline`
 - FastAPI run trace endpoint at `GET /api/v1/runs/{thread_id}/trace`
@@ -22,7 +23,7 @@ The current repository state is the post-MVP workflow portfolio slice:
 
 Open the frontend, select a demo ticket, and click `Run workflow`.
 
-The frontend calls `POST /api/v1/tickets/{ticket_id}/run`, and the backend runs this LangGraph path:
+The frontend calls `POST /api/v1/tickets/{ticket_id}/runs/start`, receives a `thread_id`, and polls run state plus trace data while the backend runs this LangGraph path:
 
 1. Load the selected ticket from local demo data
 2. Classify the ticket with deterministic rules
@@ -125,6 +126,7 @@ Available routes:
 - `GET /healthz`
 - `GET /api/v1/tickets`
 - `POST /api/v1/tickets/{ticket_id}/run`
+- `POST /api/v1/tickets/{ticket_id}/runs/start`
 - `GET /api/v1/runs/{thread_id}/state`
 - `GET /api/v1/runs/{thread_id}/timeline`
 - `GET /api/v1/runs/{thread_id}/trace`

@@ -1,13 +1,14 @@
 from typing import Any
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from langgraph.types import Command, Interrupt
 
 from app.graph.builder import get_support_graph
 from app.schemas.graph import (
     PendingReviewItem,
     RunStateResponse,
+    StartRunResponse,
     RunTicketResponse,
     RunTraceResponse,
     RunTimelineResponse,
@@ -17,9 +18,26 @@ from app.services.pending_review_store import get_pending_review_store
 from app.services.run_event_store import get_run_event_store
 from app.services.run_state_service import get_run_state
 from app.services.run_trace_store import get_run_trace_store
-from app.services.ticket_repo import TicketNotFoundError
+from app.services.ticket_repo import TicketNotFoundError, get_ticket_by_id
 
 router = APIRouter(prefix="/api/v1", tags=["runs"])
+
+
+def _new_thread_id(ticket_id: str) -> str:
+    return f"ticket-{ticket_id}-{uuid4().hex[:8]}"
+
+
+def _append_run_started(thread_id: str, ticket_id: str) -> None:
+    event_store = get_run_event_store()
+    event_store.append(
+        event_store.create_event(
+            thread_id=thread_id,
+            ticket_id=ticket_id,
+            event_type="run_started",
+            status="running",
+            message="Workflow run started.",
+        )
+    )
 
 
 def _build_response(result: dict[str, Any]) -> RunTicketResponse:
@@ -153,23 +171,16 @@ def _append_major_run_events(
     )
 
 
-@router.post("/tickets/{ticket_id}/run", response_model=RunTicketResponse)
-def run_ticket(ticket_id: str) -> RunTicketResponse:
+def _execute_ticket_run(
+    ticket_id: str,
+    thread_id: str,
+    *,
+    raise_http_errors: bool,
+) -> RunTicketResponse | None:
     graph = get_support_graph()
     store = get_pending_review_store()
     event_store = get_run_event_store()
-    thread_id = f"ticket-{ticket_id}-{uuid4().hex[:8]}"
     config = {"configurable": {"thread_id": thread_id}}
-
-    event_store.append(
-        event_store.create_event(
-            thread_id=thread_id,
-            ticket_id=ticket_id,
-            event_type="run_started",
-            status="running",
-            message="Workflow run started.",
-        )
-    )
 
     try:
         result = graph.invoke(
@@ -186,7 +197,9 @@ def run_ticket(ticket_id: str) -> RunTicketResponse:
                 message="Ticket not found.",
             )
         )
-        raise HTTPException(status_code=404, detail="Ticket not found") from exc
+        if raise_http_errors:
+            raise HTTPException(status_code=404, detail="Ticket not found") from exc
+        return None
     except Exception as exc:
         event_store.append(
             event_store.create_event(
@@ -197,7 +210,9 @@ def run_ticket(ticket_id: str) -> RunTicketResponse:
                 message=f"Workflow failed: {exc}",
             )
         )
-        raise HTTPException(status_code=500, detail=f"Workflow failed: {exc}") from exc
+        if raise_http_errors:
+            raise HTTPException(status_code=500, detail=f"Workflow failed: {exc}") from exc
+        return None
 
     pending_review = _extract_pending_review(result)
     if pending_review is not None:
@@ -209,6 +224,34 @@ def run_ticket(ticket_id: str) -> RunTicketResponse:
 
     _append_major_run_events(result, event_store=event_store, pending_review=pending_review)
     return _build_response(result)
+
+
+@router.post("/tickets/{ticket_id}/run", response_model=RunTicketResponse)
+def run_ticket(ticket_id: str) -> RunTicketResponse:
+    thread_id = _new_thread_id(ticket_id)
+    _append_run_started(thread_id, ticket_id)
+    response = _execute_ticket_run(ticket_id, thread_id, raise_http_errors=True)
+    if response is None:
+        raise HTTPException(status_code=500, detail="Workflow failed")
+    return response
+
+
+@router.post("/tickets/{ticket_id}/runs/start", response_model=StartRunResponse)
+def start_ticket_run(ticket_id: str, background_tasks: BackgroundTasks) -> StartRunResponse:
+    try:
+        get_ticket_by_id(ticket_id)
+    except TicketNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Ticket not found") from exc
+
+    thread_id = _new_thread_id(ticket_id)
+    _append_run_started(thread_id, ticket_id)
+    background_tasks.add_task(
+        _execute_ticket_run,
+        ticket_id,
+        thread_id,
+        raise_http_errors=False,
+    )
+    return StartRunResponse(thread_id=thread_id, ticket_id=ticket_id, status="running")
 
 
 @router.post("/runs/{thread_id}/resume", response_model=RunTicketResponse)

@@ -4,6 +4,7 @@ import type {
   RunTicketResponse,
   RunTraceResponse,
   RunTimelineResponse,
+  StartRunResponse,
   SubmitReviewDecisionRequest,
   Ticket,
 } from "./types";
@@ -30,6 +31,18 @@ export async function runTicket(ticketId: string): Promise<RunTicketResponse> {
   }
 
   return (await response.json()) as RunTicketResponse;
+}
+
+export async function startRun(ticketId: string): Promise<StartRunResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/tickets/${ticketId}/runs/start`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Unable to start workflow (${response.status})`);
+  }
+
+  return (await response.json()) as StartRunResponse;
 }
 
 export async function fetchPendingReviews(): Promise<PendingReviewItem[]> {

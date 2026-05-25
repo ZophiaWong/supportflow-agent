@@ -98,6 +98,12 @@ class RunTicketResponse(BaseModel):
     executed_actions: list[SupportAction] = Field(default_factory=list)
 
 
+class StartRunResponse(BaseModel):
+    thread_id: str
+    ticket_id: str
+    status: Literal["running"]
+
+
 class RunTimelineEvent(BaseModel):
     event_id: str
     thread_id: str

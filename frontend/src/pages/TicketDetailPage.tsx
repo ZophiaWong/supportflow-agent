@@ -6,7 +6,7 @@ import { TicketDetail } from "../components/TicketDetail";
 import { WorkflowResultPanel } from "../components/WorkflowResultPanel";
 import { WorkflowTimeline } from "../components/WorkflowTimeline";
 import { WorkflowTrace } from "../components/WorkflowTrace";
-import { fetchRunState, fetchRunTimeline, fetchRunTrace, fetchTickets, runTicket } from "../lib/api";
+import { fetchRunState, fetchRunTimeline, fetchRunTrace, fetchTickets, startRun } from "../lib/api";
 import type {
   RunStateResponse,
   RunTicketResponse,
@@ -18,7 +18,7 @@ import type {
 const LAST_THREAD_ID_STORAGE_KEY = "supportflow:last-thread-id";
 
 function shouldPoll(status: RunStateResponse["status"] | RunTicketResponse["status"]): boolean {
-  return status === "running" || status === "waiting_review";
+  return status === "running";
 }
 
 export function TicketDetailPage() {
@@ -99,6 +99,22 @@ export function TicketDetailPage() {
         setRunState(nextState.ticket_id === ticketId ? nextState : null);
         setTimelineEvents(nextState.ticket_id === ticketId ? nextTimeline.events : []);
         setTraceEvents(nextState.ticket_id === ticketId ? nextTrace.events : []);
+        if (nextState.ticket_id === ticketId && nextState.classification && nextState.draft) {
+          setWorkflowResult({
+            thread_id: nextState.thread_id,
+            ticket_id: nextState.ticket_id,
+            status: nextState.status,
+            classification: nextState.classification,
+            retrieved_chunks: nextState.retrieved_chunks,
+            draft: nextState.draft,
+            risk_assessment: nextState.risk_assessment,
+            policy_assessment: nextState.policy_assessment,
+            pending_review: nextState.pending_review,
+            final_response: nextState.final_response,
+            proposed_actions: nextState.proposed_actions,
+            executed_actions: nextState.executed_actions,
+          });
+        }
         setRunStateError(null);
 
         if (nextState.ticket_id === ticketId && shouldPoll(nextState.status)) {
@@ -136,12 +152,32 @@ export function TicketDetailPage() {
 
     setWorkflowPending(true);
     setWorkflowError(null);
+    setWorkflowResult(null);
+    setRunStateError(null);
 
     try {
-      const result = await runTicket(ticket.id);
-      setWorkflowResult(result);
-      setActiveThreadId(result.thread_id);
-      window.localStorage.setItem(LAST_THREAD_ID_STORAGE_KEY, result.thread_id);
+      const started = await startRun(ticket.id);
+      setTimelineEvents([]);
+      setTraceEvents([]);
+      setRunState({
+        thread_id: started.thread_id,
+        ticket_id: started.ticket_id,
+        status: started.status,
+        current_node: null,
+        classification: null,
+        retrieved_chunks: [],
+        draft: null,
+        risk_assessment: null,
+        policy_assessment: null,
+        review_decision: null,
+        final_response: null,
+        pending_review: null,
+        proposed_actions: [],
+        executed_actions: [],
+        error: null,
+      });
+      setActiveThreadId(started.thread_id);
+      window.localStorage.setItem(LAST_THREAD_ID_STORAGE_KEY, started.thread_id);
     } catch (err) {
       setWorkflowError(err instanceof Error ? err.message : "Unknown workflow error");
       setWorkflowResult(null);
@@ -149,6 +185,8 @@ export function TicketDetailPage() {
       setWorkflowPending(false);
     }
   }
+
+  const runInProgress = workflowPending || runState?.status === "running";
 
   if (loading) {
     return <p className="status-panel">Loading ticket...</p>;
@@ -190,7 +228,7 @@ export function TicketDetailPage() {
           <TicketDetail
             ticket={ticket}
             onRunWorkflow={handleRunWorkflow}
-            runPending={workflowPending}
+            runPending={runInProgress}
           />
           <WorkflowResultPanel result={workflowResult} error={workflowError} />
         </div>

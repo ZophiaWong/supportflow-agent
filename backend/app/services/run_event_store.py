@@ -93,6 +93,22 @@ class RunEventStore:
             ).fetchone()
         return row is not None
 
+    def get_thread_ticket_id(self, thread_id: str) -> str | None:
+        with connect() as connection:
+            row = connection.execute(
+                """
+                SELECT ticket_id
+                FROM run_events
+                WHERE thread_id = ?
+                ORDER BY created_at, event_id
+                LIMIT 1
+                """,
+                (thread_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return str(row["ticket_id"])
+
     def clear(self) -> None:
         with connect() as connection:
             connection.execute("DELETE FROM run_events")

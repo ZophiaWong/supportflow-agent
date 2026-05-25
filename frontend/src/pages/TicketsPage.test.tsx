@@ -6,8 +6,8 @@ import { vi } from "vitest";
 import { TicketDetailPage } from "./TicketDetailPage";
 import { TicketsPage } from "./TicketsPage";
 
-const { runTicketMock } = vi.hoisted(() => ({
-  runTicketMock: vi.fn(),
+const { startRunMock } = vi.hoisted(() => ({
+  startRunMock: vi.fn(),
 }));
 const { fetchTicketsMock, fetchRunStateMock, fetchRunTimelineMock, fetchRunTraceMock } = vi.hoisted(() => ({
   fetchTicketsMock: vi.fn(),
@@ -21,7 +21,7 @@ vi.mock("../lib/api", () => ({
   fetchRunState: fetchRunStateMock,
   fetchRunTimeline: fetchRunTimelineMock,
   fetchRunTrace: fetchRunTraceMock,
-  runTicket: runTicketMock,
+  startRun: startRunMock,
 }));
 
 const tickets = [
@@ -129,12 +129,16 @@ describe("Tickets routes", () => {
   beforeEach(() => {
     window.localStorage.clear();
     fetchTicketsMock.mockReset();
-    runTicketMock.mockReset();
+    startRunMock.mockReset();
     fetchRunStateMock.mockReset();
     fetchRunTimelineMock.mockReset();
     fetchRunTraceMock.mockReset();
     fetchTicketsMock.mockResolvedValue(tickets);
-    runTicketMock.mockResolvedValue(runResult);
+    startRunMock.mockResolvedValue({
+      thread_id: "ticket-ticket-1002-1234abcd",
+      ticket_id: "ticket-1002",
+      status: "running",
+    });
     fetchRunStateMock.mockResolvedValue({
       ...runResult,
       current_node: "human_review_interrupt",
@@ -251,7 +255,7 @@ describe("Tickets routes", () => {
       expect(screen.getByText("Account Unlock Guide")).toBeInTheDocument();
     });
 
-    expect(runTicketMock).toHaveBeenCalledWith("ticket-1002");
+    expect(startRunMock).toHaveBeenCalledWith("ticket-1002");
     expect(fetchRunStateMock).toHaveBeenCalledWith("ticket-ticket-1002-1234abcd");
     expect(fetchRunTimelineMock).toHaveBeenCalledWith("ticket-ticket-1002-1234abcd");
     expect(fetchRunTraceMock).toHaveBeenCalledWith("ticket-ticket-1002-1234abcd");

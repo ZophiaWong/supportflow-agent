@@ -14,12 +14,12 @@ This improves the product experience and demonstrates full-stack agent UX for lo
 
 - [x] (2026-04-27) Created this todo ExecPlan from `docs/product-specs/ai-agent-engineer-portfolio-roadmap.md`.
 - [x] (2026-05-25) Reviewed the plan against the current backend route shape, trace endpoint, and approval-gated customer-send behavior.
-- [ ] Move this file to `docs/exec-plans/active/` when implementation starts.
-- [ ] Inspect current ticket run UI, backend run endpoint, trace/state/timeline polling behavior, and existing frontend tests.
-- [ ] Add a non-blocking run-start endpoint backed by background execution.
-- [ ] Update frontend to render live progress from trace/state polling without manual refresh.
-- [ ] Add frontend and backend tests.
-- [ ] Update README and this ExecPlan with observed behavior.
+- [x] (2026-05-25) Moved this file to `docs/exec-plans/active/` for implementation.
+- [x] (2026-05-25) Inspected current ticket detail UI, backend run endpoint, trace/state/timeline polling behavior, and existing frontend/backend tests.
+- [x] (2026-05-25) Added a non-blocking run-start endpoint backed by FastAPI background execution.
+- [x] (2026-05-25) Updated frontend ticket detail flow to start background runs and render live progress from trace/state polling.
+- [x] (2026-05-25) Added backend and frontend test coverage for the new start-run behavior.
+- [x] (2026-05-25) Updated README and this ExecPlan with observed behavior and validation evidence.
 
 ## Surprises & Discoveries
 
@@ -31,6 +31,9 @@ This improves the product experience and demonstrates full-stack agent UX for lo
 
 - Observation: Demo ticket `ticket-1003` is low content risk but should not auto-finalize before approval because external customer sends are policy-gated.
   Evidence: Current policy behavior treats `send_customer_reply` as a high-impact action requiring review, so `ticket-1003` should first transition to `waiting_review` and only reach `done` after reviewer approval.
+
+- Observation: A run can be known before LangGraph has written its first checkpoint.
+  Evidence: The new start endpoint writes `run_started` before the background graph task begins. `GET /api/v1/runs/{thread_id}/state` now returns a minimal `running` state for known started threads whose graph snapshot is not available yet.
 
 ## Decision Log
 
@@ -46,9 +49,17 @@ This improves the product experience and demonstrates full-stack agent UX for lo
   Rationale: Trace rows are written at graph-node boundaries and already include node status, duration, policy IDs, proposed actions, reviewer decisions, and final disposition. Timeline rows are useful for the existing product surface but are not currently emitted early enough to be the live progress source.
   Date/Author: 2026-05-25 / Codex
 
+- Decision: Preserve the existing blocking run endpoint and add `POST /api/v1/tickets/{ticket_id}/runs/start` instead of changing existing route semantics.
+  Rationale: Existing tests, evals, and manual curl examples rely on the blocking route returning a full `RunTicketResponse`. The new route gives the frontend a `thread_id` immediately without breaking those callers.
+  Date/Author: 2026-05-25 / Codex
+
 ## Outcomes & Retrospective
 
-Not started. At completion, summarize the chosen streaming mechanism, UI behavior, tests, and any deferred real token streaming work.
+Completed on 2026-05-25. The backend now exposes `POST /api/v1/tickets/{ticket_id}/runs/start`, which validates the ticket, writes a `run_started` timeline event, returns `thread_id` immediately, and runs the existing graph workflow in a background task. The existing blocking run endpoint remains unchanged for compatibility.
+
+The frontend ticket detail page now calls the start endpoint, stores the returned thread ID, renders an immediate `running` state, and polls state/timeline/trace until the run leaves `running`. When state has enough workflow data, the existing workflow output panel is hydrated from `RunStateResponse`, so `waiting_review`, final responses, support actions, and policy data still appear in the familiar UI.
+
+Validation passed: backend tests reported `43 passed`; frontend tests reported `13 passed`; frontend production build succeeded; offline eval reported `graph_v1 final_pass_rate=1.00` with `0` bad cases. Real token streaming remains deferred because this workflow uses deterministic local drafting rather than incremental LLM token output.
 
 ## Context and Orientation
 
@@ -101,6 +112,23 @@ After implementation, run:
     cd backend
     uv run --cache-dir /tmp/uv-cache pytest
 
+Observed final validation on 2026-05-25:
+
+    cd backend
+    uv run --cache-dir /tmp/uv-cache pytest
+    # 43 passed in 15.97s
+
+    cd frontend
+    npm test -- --run
+    # 13 passed
+
+    npm run build
+    # built in 461ms
+
+    cd backend
+    uv run --cache-dir /tmp/uv-cache python scripts/run_offline_eval.py
+    # target=graph_v1 examples=20 ... final_pass_rate=1.00 bad_cases=0
+
 Manual smoke:
 
     cd backend
@@ -151,3 +179,5 @@ The exact response schema can be a small Pydantic model in `backend/app/schemas/
 2026-04-27: Initial active ExecPlan created by splitting the AI Agent Engineer portfolio roadmap into implementation milestones.
 
 2026-05-25: Revised before activation. The plan now chooses background-run polling, uses trace as the primary progress source, preserves the existing blocking run endpoint, and aligns acceptance with the current approval-gated `send_customer_reply` behavior.
+
+2026-05-25: Implemented the plan. Added the non-blocking start endpoint, minimal running state fallback for just-started threads, frontend start-run polling, README updates, tests, and final validation evidence.

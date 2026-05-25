@@ -134,6 +134,12 @@ export interface RunTicketResponse {
   executed_actions: SupportAction[];
 }
 
+export interface StartRunResponse {
+  thread_id: string;
+  ticket_id: string;
+  status: "running";
+}
+
 export interface RunTimelineEvent {
   event_id: string;
   thread_id: string;
