@@ -2,19 +2,20 @@
 
 supportflow-agent is a workflow-first AI support app for ticket triage, knowledge retrieval, response drafting, and human review for risky cases.
 
-The current repository state is the post-MVP durable workflow slice:
+The current repository state is the post-MVP workflow portfolio slice:
 
 - FastAPI backend with `GET /healthz`
 - FastAPI ticket list endpoint at `GET /api/v1/tickets`
 - FastAPI workflow run endpoint at `POST /api/v1/tickets/{ticket_id}/run`
 - FastAPI run state endpoint at `GET /api/v1/runs/{thread_id}/state`
 - FastAPI run timeline endpoint at `GET /api/v1/runs/{thread_id}/timeline`
+- FastAPI run trace endpoint at `GET /api/v1/runs/{thread_id}/trace`
 - FastAPI pending review endpoint at `GET /api/v1/reviews/pending`
 - FastAPI resume endpoint at `POST /api/v1/runs/{thread_id}/resume`
-- LangGraph workflow with risk gating, human-in-the-loop resume, and inspectable run state
-- React ticket inbox at `/tickets` with run timeline and state inspection
+- LangGraph workflow with policy gating, approval-gated support actions, human-in-the-loop resume, and inspectable run state
+- React ticket inbox at `/tickets` with run timeline, trace, and state inspection
 - React review queue at `/reviews`
-- Local Markdown knowledge base used by the retriever
+- Local Markdown knowledge base with metadata-backed retrieval diagnostics
 - Offline eval CLI comparing `plain_rag_baseline` with `graph_v1`
 
 ## What the app does today
@@ -27,8 +28,9 @@ The frontend calls `POST /api/v1/tickets/{ticket_id}/run`, and the backend runs 
 2. Classify the ticket with deterministic rules
 3. Retrieve matching KB snippets from `data/kb`
 4. Draft a reply with citations and confidence
-5. Run a deterministic risk gate
-6. Either auto-finalize the response or interrupt for human review
+5. Propose simulated support actions such as sending a customer reply
+6. Run deterministic policy checks over the ticket, draft, evidence, and proposed actions
+7. Pause for human approval when policy requires review, then resume to finalization or manual takeover
 
 The UI then shows:
 
@@ -36,18 +38,20 @@ The UI then shows:
 - classification category and priority
 - retrieved knowledge hits
 - draft reply and confidence
-- risk flags and risk-gate reason
-- final response for low-risk tickets
-- waiting-review state for risky tickets
+- policy flags and reviewer guidance
+- proposed and executed support actions
+- waiting-review state for approval-gated sends and risky tickets
+- final response after approval or safe finalization
 - current run state for the active `thread_id`
 - timeline of major workflow milestones
+- measured graph-node trace spans
 
 The `/tickets` page stores the latest run `thread_id` in local storage and reloads its state and timeline from the backend. Run checkpoints, pending reviews, and timeline events are stored in local SQLite state, so a waiting review can survive a backend restart when the same database path is used.
 
-For risky tickets, open `/reviews` to:
+For approval-gated or risky tickets, open `/reviews` to:
 
 - inspect the draft and supporting knowledge
-- approve the draft
+- approve the draft and proposed support actions
 - edit the draft and resume with the edited answer
 - reject the AI draft and mark the ticket for manual takeover
 
@@ -70,10 +74,14 @@ Key backend files:
 - `backend/app/api/v1/tickets.py`: ticket list endpoint
 - `backend/app/api/v1/runs.py`: workflow run and resume endpoints
 - `backend/app/services/run_event_store.py`: SQLite-backed run timeline storage
+- `backend/app/services/run_trace_store.py`: SQLite-backed graph-node trace storage
 - `backend/app/services/run_state_service.py`: read-only run state projection from LangGraph checkpoints
 - `backend/app/api/v1/reviews.py`: pending review list endpoint
 - `backend/app/services/ticket_repo.py`: demo ticket loading
-- `backend/app/services/retrieval.py`: lexical KB retrieval
+- `backend/app/services/retrieval.py`: lexical KB retrieval with diagnostics
+- `backend/app/services/kb_ingestion.py`: Markdown KB metadata validation
+- `backend/app/services/policy_engine.py`: deterministic policy checks
+- `backend/app/services/action_ledger.py`: durable simulated support action ledger
 - `backend/app/services/pending_review_store.py`: SQLite-backed pending review storage
 - `backend/app/services/sqlite_checkpointer.py`: local SQLite LangGraph checkpoint saver
 - `backend/app/services/sqlite_store.py`: SQLite path and schema setup
@@ -92,6 +100,9 @@ Key frontend files:
 - `frontend/src/pages/TicketsPage.tsx`: main inbox page
 - `frontend/src/components/RunStatePanel.tsx`: current run-state display
 - `frontend/src/components/WorkflowTimeline.tsx`: major-step timeline display
+- `frontend/src/components/WorkflowTrace.tsx`: graph-node trace display
+- `frontend/src/components/PolicyAssessmentList.tsx`: policy check display
+- `frontend/src/components/SupportActionList.tsx`: support action display
 - `frontend/src/pages/ReviewQueuePage.tsx`: review queue page
 - `frontend/src/components/TicketList.tsx`: selectable ticket list
 - `frontend/src/components/TicketDetail.tsx`: selected ticket detail
@@ -116,14 +127,17 @@ Available routes:
 - `POST /api/v1/tickets/{ticket_id}/run`
 - `GET /api/v1/runs/{thread_id}/state`
 - `GET /api/v1/runs/{thread_id}/timeline`
+- `GET /api/v1/runs/{thread_id}/trace`
 - `GET /api/v1/reviews/pending`
 - `POST /api/v1/runs/{thread_id}/resume`
 
-Example low-risk run:
+Example approval-gated customer reply run:
 
 ```bash
 curl -s -X POST http://127.0.0.1:8000/api/v1/tickets/ticket-1003/run
 ```
+
+This should return `waiting_review` because `send_customer_reply` is an external customer-facing action that requires approval before execution.
 
 Example risky run and resume:
 
@@ -150,12 +164,21 @@ The frontend starts on:
 - `http://127.0.0.1:5173/tickets`
 - `http://127.0.0.1:5173/reviews`
 
+By default, the frontend calls `http://127.0.0.1:8000`. If the backend runs on another port, create `frontend/.env.local` before starting Vite:
+
+```env
+VITE_API_BASE_URL=http://127.0.0.1:8002
+```
+
+Restart the frontend dev server after changing this file. For production builds, run `npm run build` again because Vite embeds `VITE_API_BASE_URL` at build time.
+
 ## Manual behavior check
 
 Use the shipped demo tickets to confirm the main behaviors:
 
-- `ticket-1003` should auto-finalize on `/tickets`, show a `Final response`, and show a completed timeline.
-- `ticket-1001` should pause in `waiting_review`, show risk-gate details and an interrupt event, and appear on `/reviews`.
+- `ticket-1003` should pause in `waiting_review`, show a proposed `send_customer_reply` action, and appear on `/reviews` because customer sends require approval.
+- Approving `ticket-1003` should finish the run, execute the proposed send action once, show a `Final response`, and show completed timeline and trace data.
+- `ticket-1001` should pause in `waiting_review`, show billing/sensitive policy details and an interrupt event, and appear on `/reviews`.
 - Approving or editing a pending review should finish the run and show a completed result.
 - Rejecting a pending review should end in `manual_takeover` with no final AI response.
 
@@ -242,13 +265,12 @@ npm run build
 
 This repository intentionally does not yet include:
 
-- durable database storage for reviews or runs
 - streaming
-- LangSmith tracing
+- hosted LangSmith tracing
 - vector retrieval
 - real LLM generation
 - external ticket system integration
-- external message write-back
+- real external message write-back
 
 ## Planning docs
 
