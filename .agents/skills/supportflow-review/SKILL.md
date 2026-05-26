@@ -1,415 +1,364 @@
 ---
 name: supportflow-review
-description: Review the SupportFlow-agent project from an interviewer/HR perspective using code evidence. Use this skill when auditing implemented workflow, LangGraph state, RAG, guardrails, human review, action execution, persistence, evals, traces, or interview readiness. Do not use for generic refactoring or feature implementation unless explicitly asked.
+description: Review a SupportFlow-style AI workflow project to help a developer understand the current system, assess readiness, find gaps, and plan or implement the next feature. Use for architecture review, code review, onboarding review, feature-readiness review, LangGraph/workflow review, backend/frontend/API review, eval/observability review, demo/readiness review, or interview-oriented project review. Prefer Chinese output unless the user asks otherwise.
 ---
 
-# SupportFlow Review Skill
+# SupportFlow Review
 
-## Purpose
+## 目标
 
-Use this skill to review the current SupportFlow-agent project in a code-evidence-driven way.
+这个 skill 用于做“能帮助人继续推进项目”的 review，而不是写静态项目介绍。
 
-The goal is not to produce generic documentation. The goal is to help the project owner regain control of the project by answering interview-style questions with direct references to the current implementation, identifying gaps, and turning those gaps into focused hardening tasks.
+Review 的产出应该帮助使用者回答：
 
-SupportFlow-agent is a production-oriented prototype for AI-assisted customer support ticket triage. It uses FastAPI, React, LangGraph, RAG, guardrails, human review, safe action execution, persistence, traces, and evals to demonstrate controlled AI workflow engineering.
+- 现在系统真实做了什么？
+- 新人要从哪里开始读？
+- 当前改动或新功能会碰到哪些边界？
+- 哪些风险会影响后续实现、演示、面试或生产化？
+- 下一步最小可执行改动是什么？
 
-## When to use
+默认使用中文。只有当用户明确要求英文、面试英文稿、PR 英文评论时，才切换语言。
 
-Use this skill when the user asks to:
+## 核心原则
 
-- review the current SupportFlow implementation
-- audit whether a feature is actually implemented
-- answer interviewer or HR-style questions about the project
-- identify production-like gaps
-- create `docs/notes` review documents
-- prepare architecture notes, interview notes, or hardening plans
-- inspect LangGraph nodes, state schema, RAG, guardrails, review queue, action layer, persistence, trace, or eval logic
+- 先读再评，不凭记忆或文件名猜测。
+- 少写死路径，多用仓库发现命令动态定位代码。
+- 区分：已实现、部分实现、仅文档设计、缺失、未知需验证。
+- 每个关键判断都要有证据：文件、函数、类、路由、组件、schema、测试、命令输出或文档段落。
+- Review 目标是提升长期可维护性和下一步执行力，不是为了显得项目完美。
+- Review 不是追求完美代码；当改动整体改善系统健康且风险可控时，优先帮助项目继续前进。
+- 不默认重构，不默认实现功能；如果用户要求实现，再从 review 结论转成执行计划。
+- 对 AI workflow 项目，优先关注流程控制、状态边界、人工审核、安全动作、可观测性和 eval 证据。
 
-Do not use this skill when the task is only:
+## 适用场景
 
-- implementing a new feature without review
-- doing broad code cleanup
-- writing generic README content
-- creating marketing copy
-- rewriting unrelated documentation
+使用本 skill，当用户要求：
 
-## Core principle
+- review 当前项目、模块、PR、功能设计或实现质量
+- 让新人快速上手并准备实现一个新功能
+- 判断某个能力是否真的实现
+- 梳理 LangGraph / workflow / API / frontend / eval / trace / persistence
+- 找 production-like gap、demo risk、面试表达风险
+- 生成上手路线、改动建议、hardening plan、review comments
+- 设计文档树、ExecPlan、任务拆分，但先给建议，等用户确认后再落文件
 
-Always distinguish:
+不适用：
 
-1. Implemented
-2. Partially implemented
-3. Designed but not implemented
-4. Future work
+- 用户只要你直接实现一个明确小改动，且不需要审阅上下文
+- 泛泛写营销文案
+- 脱离代码证据的项目包装
 
-Never claim a feature exists unless the code evidence supports it.
+## 默认工作流
 
-## Default behavior
+### 1. 确认 review 类型
 
-Unless the user explicitly asks for code changes, operate in read-only audit mode.
+如果用户没有指定，先判断最接近哪一种：
 
-Read the relevant files first. Then produce a structured review document.
+- **Onboarding review**：帮助新人理解项目并找到入口。
+- **Architecture review**：审查模块边界、数据流、状态流和扩展性。
+- **Feature-readiness review**：判断实现某个新功能前需要知道什么、改哪里、风险是什么。
+- **Code review**：审查具体 diff、bug、回归风险、测试缺口。
+- **Demo/interview review**：判断项目表达是否可信，哪些话能说，哪些不能说。
+- **Hardening review**：找最小生产化增强点。
 
-Do not rewrite the project during the review. Do not invent architecture that is not present in the codebase. Do not turn gaps into implemented claims.
+### 2. 先看整体，再看细节
 
-## Required output format
+Review 顺序：
 
-For every reviewed question, use this structure:
+1. 先判断目标是否合理：这个改动或计划是否应该发生，是否符合项目方向。
+2. 找主路径：先看最影响系统行为的文件、路由、节点、schema 或组件。
+3. 再看支撑面：测试、文档、数据、配置、迁移、生成物。
+4. 最后看局部质量：命名、注释、重复、格式、轻微可读性问题。
+
+如果一开始就发现方向性问题，先反馈方向和替代路径，不要花大量篇幅纠结局部代码。
+
+### 3. 动态发现项目结构
+
+优先使用这些命令，不要依赖固定目录：
+
+```bash
+rg --files
+git status --short
+find . -maxdepth 3 -name AGENTS.md -o -name README.md -o -name ARCHITECTURE.md
+find docs -maxdepth 4 -type f 2>/dev/null
+```
+
+如果是代码 review：
+
+```bash
+git diff --stat
+git diff --name-only
+git diff
+```
+
+如果是功能/架构 review，先寻找：
+
+- 项目入口：README、AGENTS、ARCHITECTURE、product specs、active plans
+- 后端入口：API routes、app/main、schemas、services
+- workflow 入口：graph builder、state、nodes、routing
+- 前端入口：pages、components、API client、types
+- 质量入口：tests、eval scripts、trace/observability code
+- 数据入口：sample tickets、KB、eval fixtures
+
+### 4. 建立“证据地图”
+
+不要把完整路径硬编码进 skill；在每次 review 时生成当前项目的证据地图。
+
+建议格式：
 
 ```md
-# 问题
-
-## 当前实现
-- 相关文件：
-- 相关函数 / class：
-- 当前行为：
-
-## 设计意图
-- 为什么这样设计：
-
-## 缺口
-- 当前还不像 production-like 的地方：
-
-## Hardening 建议
-- 最小改动：
-- 后续增强：
-
-## 面试表达
-- 30 秒回答：
-- 深挖回答：
+| 关注点        | 当前证据 | 说明                             |
+| ------------- | -------- | -------------------------------- |
+| workflow 入口 | `...`    | 节点和路由定义位置               |
+| 状态 schema   | `...`    | run state / API contract         |
+| 人工审核      | `...`    | interrupt/resume 或 review queue |
+| 安全动作      | `...`    | proposed/executed action 分离    |
+| 持久化        | `...`    | checkpoint/store/timeline        |
+| eval          | `...`    | 数据集、runner、scoring          |
 ```
 
-## Evidence rules
+### 5. 做 review
 
-For each claim under “当前实现”, include concrete evidence:
+按 review 类型选择关注点：
 
-- file path
-- function name, class name, API route, React component, graph node, model, schema, or test
-- short description of actual behavior
+**Onboarding review**
 
-Good:
+- 项目一句话
+- 最先读哪 5-8 个文件
+- 一条主流程如何穿过 backend / workflow / frontend
+- 哪些概念必须先懂
+- 新人第一个小任务建议
+
+**Architecture review**
+
+- 模块边界是否清楚
+- 数据结构和状态流是否稳定
+- workflow 路由是否可解释
+- API contract 是否和 UI 一致
+- 是否存在隐式耦合或重复状态源
+
+**Feature-readiness review**
+
+- 新功能要改哪些区域
+- 当前设计支持点和阻碍点
+- 最小实现路径
+- 需要新增或更新的测试/eval/docs
+- 是否需要 ExecPlan 或文档树调整
+
+**Code review**
+
+- 先列 bug、回归风险、安全风险和缺测试
+- 再列可维护性问题
+- 最后给小范围修复建议
+- 不把风格问题放在功能问题前面
+- 标注评论级别：`Blocker`、`Should fix`、`Consider`、`Nit`、`FYI`
+- 明确 review 范围：如果只看了 backend、workflow、UI 或 tests，要说明
+
+**Demo/interview review**
+
+- 哪些能力可以有把握地说
+- 哪些只是 demo-level
+- 哪些说法容易被追问击穿
+- 用代码证据支撑 30 秒回答和深挖回答
+
+## Review Checklist
+
+参考成熟工程组织的 review 实践，除非用户只要求很窄的审阅，否则至少扫过这些点：
+
+| 维度     | 关注问题                                                         |
+| -------- | ---------------------------------------------------------------- |
+| 设计     | 这个改动是否属于当前系统，是否和已有边界一致，是否过度抽象       |
+| 功能     | 是否满足用户目标，边界条件和失败路径是否清楚                     |
+| 复杂度   | 是否比需求需要的更泛化、更隐式、更难读                           |
+| 测试     | 测试是否会在行为坏掉时失败，是否覆盖核心路径和风险路径           |
+| 文档     | 改变运行、使用、API、状态、eval 或 demo 行为时是否更新文档       |
+| 安全     | 是否涉及凭证、权限、外部副作用、用户数据、注入、依赖或供应链风险 |
+| 可观测性 | 出错后是否能定位节点、请求、run、决策或动作                      |
+| 用户影响 | UI/API/审核员流程是否可理解，错误是否可恢复                      |
+| 可维护性 | 命名、注释、模块边界、重复逻辑、未来改动成本                     |
+
+## Review 维度
+
+优先检查这些维度，按项目实际情况取舍：
+
+- Workflow control：节点、路由、终止状态、失败状态、resume 语义
+- State and contracts：Pydantic/schema/types/API response 是否一致
+- Retrieval/RAG：数据来源、检索策略、citation、低置信度处理
+- Guardrails：策略规则、风险分类、缺失证据时的行为
+- Human review：审核入口、approve/edit/reject、状态恢复、审计记录
+- Action safety：proposed vs executed、副作用、幂等、失败记录
+- Persistence：checkpoint、业务状态、运行事件、重启恢复
+- Observability：timeline、trace、错误定位、可回放性
+- Evals：fixture 质量、指标、bad case、回归门槛
+- Frontend UX：主流程是否能完成、状态是否清楚、错误是否可理解
+- Demo readiness：启动路径、数据重置、可复现性、说明是否可信
+- Maintainability：模块边界、重复逻辑、隐式依赖、扩展成本
+
+## 输出模板
+
+### 快速 review
 
 ```md
-- 相关文件：backend/app/graph/nodes/policy_check.py
-- 相关函数 / class：policy_check_node(...)
-- 当前行为：根据 risk_flags 和 citation 状态决定是否进入 human_review。
+## 结论
+
+一句话判断。
+
+## 证据
+
+| 结论 | 证据 | 说明 |
+| ---- | ---- | ---- |
+
+## 主要问题
+
+1. `[Blocker|Should fix|Consider|Nit|FYI]` ...
+
+## 下一步
+
+1. 最小可执行改动
+2. 需要补的测试或文档
 ```
 
-Bad:
+### 新人上手 review
 
 ```md
-- 当前行为：系统有完善的策略检查机制。
+## 上手路线
+
+1. 先读 ...
+2. 再跑 ...
+3. 跟一条请求看 ...
+
+## 核心心智模型
+
+- ...
+
+## 第一个可做任务
+
+- 目标：
+- 涉及区域：
+- 风险：
+- 验证：
 ```
 
-If the evidence is weak, say so explicitly.
+### 功能准备 review
 
-## Review workflow
+```md
+## 功能目标
 
-Follow this process:
+## 当前支持度
 
-### Step 1: Clarify the review target
+| 区域 | 当前状态 | 对新功能的影响 |
+| ---- | -------- | -------------- |
 
-Identify the module or question being reviewed. Examples:
+## 最小实现路径
 
-- Why does this project use LangGraph?
-- How does human review work?
-- How does RAG citation validation work?
-- How are high-risk actions controlled?
-- How does persistence work?
-- How are traces and evals implemented?
-- What makes this different from a chatbot?
+1. ...
 
-### Step 2: Locate relevant files
+## 风险和测试
 
-Search the repository for relevant implementation files. Prefer exact code references over assumptions.
-
-Likely areas include:
-
-```text
-backend/
-  app/
-    graph/
-    nodes/
-    models/
-    schemas/
-    services/
-    api/
-    db/
-    evals/
-    traces/
-
-frontend/
-  src/
-    pages/
-    components/
-    api/
-    types/
-
-docs/
-tests/
+- 风险：
+- 测试：
+- 文档/ExecPlan：
 ```
 
-Adapt to the actual repository structure.
+### 面试/演示 review
 
-### Step 3: Summarize current implementation
+```md
+## 可以稳定表达
 
-Describe what the code actually does now.
+- ...
 
-Keep this section factual. Avoid aspirational phrasing.
+## 谨慎表达
 
-### Step 4: Infer design intent
+- ...
 
-Explain why this design likely exists.
+## 不建议声称
 
-Use restrained language:
+- ...
 
-- “The design appears to...”
-- “This likely exists to...”
-- “Based on the current flow...”
+## 30 秒回答
 
-Do not overstate intent if the code does not make it clear.
-
-### Step 5: Identify gaps
-
-Evaluate the gap between current implementation and a production-like AI workflow system.
-
-Use these dimensions:
-
-- workflow control
-- state clarity
-- RAG reliability
-- citation grounding
-- guardrail coverage
-- human review semantics
-- action safety
-- persistence and checkpointing
-- traceability
-- eval coverage
-- error handling
-- interview explainability
-
-### Step 6: Recommend hardening
-
-Split recommendations into:
-
-- 最小改动：small changes that improve project credibility quickly
-- 后续增强：larger improvements that can be deferred
-
-Do not recommend a rewrite unless the current implementation is structurally unusable.
-
-### Step 7: Produce interview expression
-
-Write two answers:
-
-- 30 秒回答：concise, HR/interviewer-friendly
-- 深挖回答：technical answer suitable for follow-up questions
-
-## Standard review questions
-
-Use these as reusable question prompts.
-
-### Project positioning
-
-1. 这个项目一句话是什么？
-2. 它和普通客服 chatbot 有什么区别？
-3. 项目最能体现 AI Agent 工程能力的点是什么？
-4. 当前项目是 production-ready，production-like，还是 production-oriented prototype？
-
-### Business workflow
-
-5. 工单生命周期是什么？
-6. 工单有哪些类型？
-7. 哪些工单可以自动处理，哪些必须人工审核？
-8. 什么是最终成功状态？
-9. 什么情况下进入人工升级？
-
-### LangGraph workflow
-
-10. 为什么这里适合用 LangGraph？
-11. Graph state 里有哪些核心字段？
-12. 每个节点的职责是什么？
-13. 条件路由规则是什么？
-14. 哪些节点需要 checkpoint？
-15. 人工审核 reject/edit/approve 后 graph 如何继续？
-
-### RAG and citations
-
-16. 知识库内容从哪里来？
-17. chunking 或 KB item 组织方式是什么？
-18. 检索结果如何进入 prompt？
-19. 回复中的引用如何生成？
-20. 如何判断引用是否支持回复？
-21. 检索失败或低置信度时系统如何处理？
-
-### Guardrails and risk control
-
-22. 有哪些风险规则？
-23. 哪些规则是 deterministic，哪些由 LLM 判断？
-24. 缺少引用时怎么办？
-25. 高风险退款、账号、安全、隐私请求怎么处理？
-26. 如何避免 agent 直接执行高影响动作？
-
-### Human review
-
-27. 审核员看到什么信息？
-28. 审核员可以 approve、edit、reject 吗？
-29. 审核结果是否真正影响 graph 后续路由？
-30. 审核记录如何持久化？
-31. 人工拒绝案例是否进入后续 eval 或 regression？
-
-### Action layer
-
-32. 系统有哪些 proposed actions？
-33. proposed_action、approved_action、executed_action 是否分离？
-34. 哪些 action 有副作用？
-35. 如何保证 action 不重复执行？
-36. action 失败如何记录和恢复？
-
-### Persistence and state
-
-37. SQLite 里存了哪些表？
-38. LangGraph checkpoint 和业务表是什么关系？
-39. ticket_id、run_id、checkpoint_id 如何关联？
-40. 状态恢复和页面展示分别依赖哪些数据？
-
-### Trace and observability
-
-41. 一次 ticket run 能否回放？
-42. trace 记录哪些节点输入输出？
-43. trace 面向开发者、审核员、面试官分别有什么价值？
-44. 出错后如何定位失败节点？
-
-### Evals and tests
-
-45. 如何评估分类准确率？
-46. 如何评估 RAG 命中？
-47. 如何评估引用充分性？
-48. 如何评估风险路由是否正确？
-49. 如何定义端到端成功？
-50. 当前失败最多的是哪类 case？
-51. 哪些 eval 已实现，哪些只是设计？
-
-### Architecture tradeoffs
-
-52. 为什么不用纯 if-else workflow？
-53. 为什么不用 Dify / Coze？
-54. 为什么不是 fully autonomous agent？
-55. 为什么选择 FastAPI + React + LangGraph？
-56. 如果要接入真实客服系统，需要补哪些边界？
-
-## Documentation target
-
-When asked to create documentation, prefer this structure:
-
-```text
-docs/
-  notes/
-    00_project_positioning.md
-    01_interview_questions.md
-    02_current_implementation_audit.md
-    03_gap_analysis.md
-    04_hardening_plan.md
-
-  architecture/
-    workflow_overview.md
-    langgraph_state_schema.md
-    node_responsibilities.md
-    persistence_model.md
-    action_layer.md
-    human_review_flow.md
-
-  evals/
-    eval_design.md
-    ticket_fixture_design.md
-    rag_eval.md
-    routing_eval.md
-    end_to_end_eval.md
-
-  decisions/
-    ADR-001-why-langgraph.md
-    ADR-002-why-human-review.md
-    ADR-003-why-sqlite-checkpoint.md
-    ADR-004-why-not-autonomous-agent.md
-
-  interview/
-    project_pitch.md
-    deep_dive_qna.md
-    failure_cases.md
-    resume_bullets.md
+## 深挖回答
 ```
 
-Use `docs/notes` for exploration and audit notes.
+## 文档树建议
 
-Use `docs/architecture` for stable implementation descriptions.
+如果 review 发现需要新文档，不要直接创建一整套目录。先提出建议，等待用户确认。
 
-Use `docs/evals` for evaluation design and results.
+建议格式：
 
-Use `docs/decisions` for architecture tradeoffs.
+```md
+我建议新增/调整这些文档：
 
-Use `docs/interview` for resume and interview preparation.
+| 文档 | 目的 | 为什么现在需要 | 是否必须 |
+| ---- | ---- | -------------- | -------- |
 
-## Hardening priority rubric
+确认后我再创建或迁移。
+```
 
-When identifying gaps, rank them in this order:
+可以建议新文档树，不必严格服从当前结构；但必须说明迁移成本、查找成本和维护成本。
 
-### P0: Project control
+## Review 评论规则
 
-- one-sentence positioning
-- ticket lifecycle
-- graph state schema
-- node responsibility table
+评论要让作者知道：问题是什么、为什么重要、怎么收敛。
 
-### P1: Production-like evidence
+推荐格式：
 
-- realistic ticket fixtures
-- KB documents and policies
-- review queue semantics
-- action audit model
+```md
+- [级别] 位置：`path` / 函数 / 组件
+  问题：...
+  影响：...
+  建议：...
+```
 
-### P2: Evaluation
+级别定义：
 
-- classification eval
-- retrieval eval
-- citation eval
-- review routing eval
-- end-to-end eval
+- `Blocker`：会导致错误行为、安全风险、数据破坏、demo 失败或核心设计走偏。
+- `Should fix`：不一定立即坏，但会明显增加回归、维护或误解风险。
+- `Consider`：建议改进，有合理替代方案，不应阻塞。
+- `Nit`：轻微命名、格式、局部可读性问题。
+- `FYI`：背景知识或后续可考虑事项，不要求本次处理。
 
-### P3: Observability
+不要把所有评论都写成必须修改。风格偏好如果没有项目规则支撑，最多作为 `Nit` 或 `Consider`。
 
-- trace timeline
-- node input/output record
-- run replay
-- structured error records
+## 修改建议分级
 
-### P4: Advanced hardening
+- P0：当前说法或实现会误导使用者、导致 demo/测试失败、安全风险、数据破坏，或让新人走错入口。
+- P1：影响核心 workflow、安全动作、人工审核、状态恢复、API contract。
+- P2：影响 eval、trace、错误定位、测试覆盖或长期维护。
+- P3：文档组织、命名、开发体验、演示 polish。
+- P4：生产化增强，如真实集成、auth、多租户、部署、监控、向量库。
 
-- idempotent action execution
-- failure recovery
-- regression suite
-- reviewer feedback loop
-- deployment notes
+## AI Review 边界
 
-## Output style
+这个 skill 可以作为第一轮或第二轮 review，但不能替代人类判断。
 
-Be direct and evidence-focused.
+- 对高风险结论要给证据，不能只给模型判断。
+- 对安全、权限、外部副作用、数据持久化、并发、部署和依赖变更，要建议人工复核。
+- 对自动化输出要验证：运行相关测试、读关键路径、必要时手动 smoke。
+- 当上下文不足时，明确写“未知，需要验证”，不要补完故事。
+- 如果用户要实现修复，先把 review 结论转成最小任务和验证标准。
 
-Prefer tables when comparing current implementation, gap, and hardening direction.
+## 验证
 
-Do not produce long abstract explanations unless asked.
+根据 review 范围选择验证，不要机械全跑。
 
-Do not flatter the project.
+常见验证类型：
 
-Do not hide gaps.
+```bash
+pytest
+npm test -- --run
+npm run build
+python scripts/run_offline_eval.py
+python scripts/draw_langgraph.py
+```
 
-If the implementation is demo-level, say so precisely and explain what evidence would make it production-like.
+如果命令和当前项目不匹配，先通过 README、package files、pyproject 或 Makefile 查找真实命令。
 
-## Definition of done
+## 风格
 
-A review is complete only if it answers:
-
-1. What is currently implemented?
-2. Where is it implemented?
-3. What production-like concern does it address?
-4. What is still missing?
-5. What is the smallest useful hardening step?
-6. How should the user explain this in an interview?
+- 默认中文。
+- 先给结论，再给证据。
+- 发现问题要具体到文件/函数/行为。
+- 不夸大项目成熟度。
+- 不用“可能很复杂”这类空话；说明复杂在哪里、影响什么、怎么降风险。
+- 最终建议要能转成一个小任务、一个测试或一个文档更新。
