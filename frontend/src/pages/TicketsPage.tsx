@@ -45,16 +45,43 @@ export function TicketsPage() {
     };
   }, []);
 
+  const openCount = tickets.filter((ticket) => ticket.status === "open").length;
+  const pendingCount = tickets.filter((ticket) => ticket.status === "pending").length;
+  const priorityCount = tickets.filter((ticket) =>
+    ticket.priority === "urgent" || ticket.priority === "high"
+  ).length;
+
   return (
     <section className="screen">
       <div className="screen__header">
         <div>
-          <p className="screen__eyebrow">Inbox</p>
-          <h2>Support tickets</h2>
-          <p>Scan the queue, then open one ticket to run and inspect the workflow.</p>
+          <p className="screen__eyebrow">Ticket queue</p>
+          <h2>Support inbox</h2>
+          <p>Prioritize customer requests, then open a ticket to run the AI workflow.</p>
         </div>
         <span className="pill pill--workflow">{tickets.length} tickets</span>
       </div>
+
+      {!loading && !error ? (
+        <div className="metric-strip" aria-label="Ticket queue summary">
+          <div className="metric-tile">
+            <span>Total</span>
+            <strong>{tickets.length}</strong>
+          </div>
+          <div className="metric-tile">
+            <span>Open</span>
+            <strong>{openCount}</strong>
+          </div>
+          <div className="metric-tile">
+            <span>High priority</span>
+            <strong>{priorityCount}</strong>
+          </div>
+          <div className="metric-tile">
+            <span>Pending</span>
+            <strong>{pendingCount}</strong>
+          </div>
+        </div>
+      ) : null}
 
       {loading ? <p className="status-panel">Loading tickets...</p> : null}
       {!loading && error ? <p className="status-panel status-panel--error">{error}</p> : null}
@@ -96,7 +123,7 @@ export function TicketsPage() {
               </span>
               <span role="cell" data-label="Action">
                 <Link className="row-action" to={`/tickets/${ticket.id}`}>
-                  Open ticket
+                  Open
                 </Link>
               </span>
             </div>

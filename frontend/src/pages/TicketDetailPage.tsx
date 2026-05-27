@@ -1,11 +1,10 @@
 import { Link, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 
-import { RunStatePanel } from "../components/RunStatePanel";
+import { RunDiagnostics } from "../components/RunDiagnostics";
 import { TicketDetail } from "../components/TicketDetail";
+import { WorkflowRunSummary } from "../components/WorkflowRunSummary";
 import { WorkflowResultPanel } from "../components/WorkflowResultPanel";
-import { WorkflowTimeline } from "../components/WorkflowTimeline";
-import { WorkflowTrace } from "../components/WorkflowTrace";
 import { fetchRunState, fetchRunTimeline, fetchRunTrace, fetchTickets, startRun } from "../lib/api";
 import type {
   RunStateResponse,
@@ -71,10 +70,20 @@ export function TicketDetailPage() {
   }, []);
 
   useEffect(() => {
+    setWorkflowResult(null);
+    setWorkflowError(null);
+    setRunState(null);
+    setTimelineEvents([]);
+    setTraceEvents([]);
+    setRunStateError(null);
+  }, [ticketId]);
+
+  useEffect(() => {
     if (!activeThreadId) {
       setRunState(null);
       setTimelineEvents([]);
       setTraceEvents([]);
+      setWorkflowResult(null);
       setRunStateError(null);
       return;
     }
@@ -96,10 +105,14 @@ export function TicketDetailPage() {
           return;
         }
 
-        setRunState(nextState.ticket_id === ticketId ? nextState : null);
-        setTimelineEvents(nextState.ticket_id === ticketId ? nextTimeline.events : []);
-        setTraceEvents(nextState.ticket_id === ticketId ? nextTrace.events : []);
-        if (nextState.ticket_id === ticketId && nextState.classification && nextState.draft) {
+        const isCurrentTicketRun = nextState.ticket_id === ticketId;
+        setRunState(isCurrentTicketRun ? nextState : null);
+        setTimelineEvents(isCurrentTicketRun ? nextTimeline.events : []);
+        setTraceEvents(isCurrentTicketRun ? nextTrace.events : []);
+        if (!isCurrentTicketRun) {
+          setWorkflowResult(null);
+        }
+        if (isCurrentTicketRun && nextState.classification && nextState.draft) {
           setWorkflowResult({
             thread_id: nextState.thread_id,
             ticket_id: nextState.ticket_id,
@@ -214,29 +227,50 @@ export function TicketDetailPage() {
     <section className="screen">
       <div className="screen__header">
         <div>
-          <p className="screen__eyebrow">Ticket detail</p>
+          <p className="screen__eyebrow">Ticket workbench</p>
           <h2>{ticket.id}</h2>
-          <p>Inspect the customer request, run the workflow, and review the graph state.</p>
+          <p>Run the workflow, inspect evidence, and route risky drafts to human review.</p>
         </div>
         <Link className="secondary-link" to="/tickets">
           Back to inbox
         </Link>
       </div>
 
-      <div className="detail-layout">
-        <div className="detail-layout__primary">
+      {runState?.status === "waiting_review" && activeThreadId ? (
+        <div className="review-callout">
+          <div>
+            <p className="screen__eyebrow">Human review required</p>
+            <h3>Policy checks paused this run for approval.</h3>
+            <p>Open the exact review case for this workflow run.</p>
+          </div>
+          <Link className="row-action" to={`/reviews/${activeThreadId}`}>
+            Open review
+          </Link>
+        </div>
+      ) : null}
+
+      <div className="workbench-layout">
+        <div className="workbench-layout__ticket">
           <TicketDetail
             ticket={ticket}
             onRunWorkflow={handleRunWorkflow}
             runPending={runInProgress}
           />
+        </div>
+
+        <div className="workbench-layout__main">
           <WorkflowResultPanel result={workflowResult} error={workflowError} />
         </div>
 
-        <div className="detail-layout__inspection">
-          <RunStatePanel state={runState} loading={runStateLoading} error={runStateError} />
-          <WorkflowTimeline events={timelineEvents} />
-          <WorkflowTrace events={traceEvents} />
+        <div className="workbench-layout__inspection">
+          <WorkflowRunSummary state={runState} loading={runStateLoading} error={runStateError} />
+          <RunDiagnostics
+            state={runState}
+            loading={runStateLoading}
+            error={runStateError}
+            timelineEvents={timelineEvents}
+            traceEvents={traceEvents}
+          />
         </div>
       </div>
     </section>

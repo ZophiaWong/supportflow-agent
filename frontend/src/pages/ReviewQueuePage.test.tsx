@@ -17,7 +17,7 @@ vi.mock("../lib/api", () => ({
 }));
 
 const pendingReview = {
-  thread_id: "ticket-ticket-1001",
+  thread_id: "ticket-ticket-1001-a1b2c3d4",
   ticket_id: "ticket-1001",
   classification: {
     category: "billing",
@@ -61,11 +61,11 @@ const pendingReview = {
   proposed_actions: [
     {
       action_id: "act-send",
-      thread_id: "ticket-ticket-1001",
+      thread_id: "ticket-ticket-1001-a1b2c3d4",
       ticket_id: "ticket-1001",
       action_type: "send_customer_reply",
       status: "proposed",
-      idempotency_key: "ticket-ticket-1001:ticket-1001:send_customer_reply",
+      idempotency_key: "ticket-ticket-1001-a1b2c3d4:ticket-1001:send_customer_reply",
       requires_review: true,
       reason: "Send the final approved support reply to the customer.",
       payload: {},
@@ -74,11 +74,11 @@ const pendingReview = {
     },
     {
       action_id: "act-refund",
-      thread_id: "ticket-ticket-1001",
+      thread_id: "ticket-ticket-1001-a1b2c3d4",
       ticket_id: "ticket-1001",
       action_type: "create_refund_case",
       status: "proposed",
-      idempotency_key: "ticket-ticket-1001:ticket-1001:create_refund_case",
+      idempotency_key: "ticket-ticket-1001-a1b2c3d4:ticket-1001:create_refund_case",
       requires_review: true,
       reason: "Open a refund review case for the duplicate-charge request.",
       payload: {},
@@ -89,13 +89,23 @@ const pendingReview = {
   allowed_decisions: ["approve", "edit", "reject"],
 };
 
+const secondPendingReview = {
+  ...pendingReview,
+  thread_id: "ticket-ticket-1001-deadbeef",
+  proposed_actions: pendingReview.proposed_actions.map((action) => ({
+    ...action,
+    thread_id: "ticket-ticket-1001-deadbeef",
+    idempotency_key: action.idempotency_key.replace("a1b2c3d4", "deadbeef"),
+  })),
+};
+
 describe("Review routes", () => {
   beforeEach(() => {
     fetchPendingReviewsMock.mockReset();
     resumeRunMock.mockReset();
     fetchPendingReviewsMock.mockResolvedValue([pendingReview]);
     resumeRunMock.mockResolvedValue({
-      thread_id: "ticket-ticket-1001",
+      thread_id: "ticket-ticket-1001-a1b2c3d4",
       ticket_id: "ticket-1001",
       status: "done",
       classification: pendingReview.classification,
@@ -129,16 +139,39 @@ describe("Review routes", () => {
       expect(screen.getByRole("table", { name: "Pending reviews" })).toBeInTheDocument();
     });
 
+    expect(screen.getByRole("columnheader", { name: "Review case" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Risk flags" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Policy checks" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Actions" })).toBeInTheDocument();
-    expect(screen.getByText("ticket-1001")).toBeInTheDocument();
+    expect(screen.getByText("ticket-1001 · Run a1b2c3d4")).toBeInTheDocument();
+    expect(screen.getByText("Policy flags")).toBeInTheDocument();
     expect(screen.getByText("billing sensitive")).toBeInTheDocument();
     expect(screen.getByText(/high impact action requires review/)).toBeInTheDocument();
     expect(screen.getByText(/send customer reply/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open review" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Review" })).toHaveAttribute(
       "href",
-      "/reviews/ticket-ticket-1001",
+      "/reviews/ticket-ticket-1001-a1b2c3d4",
+    );
+  });
+
+  it("distinguishes multiple pending reviews for the same ticket and marks the current run", async () => {
+    fetchPendingReviewsMock.mockResolvedValue([pendingReview, secondPendingReview]);
+
+    render(
+      <MemoryRouter initialEntries={["/reviews?currentThreadId=ticket-ticket-1001-deadbeef"]}>
+        <ReviewQueuePage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("ticket-1001 · Run a1b2c3d4")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("ticket-1001 · Run deadbeef")).toBeInTheDocument();
+    expect(screen.getByText("Current")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Review" })[1]).toHaveAttribute(
+      "href",
+      "/reviews/ticket-ticket-1001-deadbeef",
     );
   });
 
@@ -155,16 +188,16 @@ describe("Review routes", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("link", { name: "Open review" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Review" })).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole("link", { name: "Open review" }));
+    await user.click(screen.getByRole("link", { name: "Review" }));
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Submit review" })).toBeInTheDocument();
     });
 
-    expect(screen.getByRole("heading", { name: "ticket-1001" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "ticket-1001 · Run a1b2c3d4" })).toBeInTheDocument();
     expect(screen.getByText("Policy checks")).toBeInTheDocument();
     expect(screen.getByText("create refund case")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Back to review queue" })).toHaveAttribute(
@@ -177,7 +210,7 @@ describe("Review routes", () => {
     const user = userEvent.setup();
 
     render(
-      <MemoryRouter initialEntries={["/reviews/ticket-ticket-1001"]}>
+      <MemoryRouter initialEntries={["/reviews/ticket-ticket-1001-a1b2c3d4"]}>
         <Routes>
           <Route path="/reviews/:threadId" element={<ReviewDetailPage />} />
         </Routes>
@@ -191,7 +224,7 @@ describe("Review routes", () => {
     await user.click(screen.getByRole("button", { name: "Submit review" }));
 
     await waitFor(() => {
-      expect(resumeRunMock).toHaveBeenCalledWith("ticket-ticket-1001", {
+      expect(resumeRunMock).toHaveBeenCalledWith("ticket-ticket-1001-a1b2c3d4", {
         decision: "approve",
         reviewer_note: null,
         edited_answer: null,

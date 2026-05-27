@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { PolicyAssessmentList } from "../components/PolicyAssessmentList";
 import { SupportActionList } from "../components/SupportActionList";
 import { fetchPendingReviews, resumeRun } from "../lib/api";
+import { formatRunLabel } from "../lib/runLabels";
 import type { PendingReviewItem, ReviewDecision, RunTicketResponse } from "../lib/types";
 
 export function ReviewDetailPage() {
@@ -95,13 +96,20 @@ export function ReviewDetailPage() {
     );
   }
 
+  const runLabel =
+    pendingReview && threadId
+      ? formatRunLabel(pendingReview.ticket_id, threadId)
+      : result
+        ? formatRunLabel(result.ticket_id, result.thread_id)
+        : null;
+
   return (
     <section className="screen">
       <div className="screen__header">
         <div>
-          <p className="screen__eyebrow">Review detail</p>
-          <h2>{pendingReview?.ticket_id ?? result?.ticket_id}</h2>
-          <p>Inspect the AI draft and submit the reviewer decision.</p>
+          <p className="screen__eyebrow">Reviewer workbench</p>
+          <h2>{runLabel}</h2>
+          <p>Compare the draft, policy context, and proposed actions before deciding.</p>
         </div>
         <Link className="secondary-link" to="/reviews">
           Back to review queue
@@ -109,14 +117,29 @@ export function ReviewDetailPage() {
       </div>
 
       {pendingReview ? (
-        <div className="detail-layout detail-layout--review">
+        <div className="review-workbench">
           <section className="result-panel">
             <div className="result-panel__header">
               <div>
-                <p className="detail-panel__eyebrow">Ticket {pendingReview.ticket_id}</p>
+                <p className="detail-panel__eyebrow">{runLabel}</p>
                 <h2>{pendingReview.classification.category} review</h2>
               </div>
               <span className="pill pill--workflow">{pendingReview.classification.priority}</span>
+            </div>
+
+            <div className="metric-strip metric-strip--compact" aria-label="Review risk summary">
+              <div className="metric-tile">
+                <span>Confidence</span>
+                <strong>{pendingReview.draft.confidence.toFixed(2)}</strong>
+              </div>
+              <div className="metric-tile">
+                <span>Risk flags</span>
+                <strong>{pendingReview.risk_flags.length}</strong>
+              </div>
+              <div className="metric-tile">
+                <span>Failed policy</span>
+                <strong>{pendingReview.policy_assessment?.failed_policy_ids.length ?? 0}</strong>
+              </div>
             </div>
 
             <div className="result-section">
@@ -241,7 +264,7 @@ export function ReviewDetailPage() {
           <div className="result-panel__header">
             <div>
               <p className="detail-panel__eyebrow">Completed review</p>
-              <h2>{result.ticket_id}</h2>
+              <h2>{runLabel}</h2>
             </div>
             <span className="pill pill--workflow">{result.status}</span>
           </div>

@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { vi } from "vitest";
 
 import { TicketDetailPage } from "./TicketDetailPage";
@@ -44,6 +44,19 @@ const tickets = [
     preview: "Can I export a monthly product usage report?",
   },
 ];
+
+function TicketDetailWithJump() {
+  const navigate = useNavigate();
+
+  return (
+    <>
+      <button type="button" onClick={() => navigate("/tickets/ticket-1003")}>
+        Jump to second ticket
+      </button>
+      <TicketDetailPage />
+    </>
+  );
+}
 
 const runResult = {
   thread_id: "ticket-ticket-1002-1234abcd",
@@ -202,7 +215,8 @@ describe("Tickets routes", () => {
     expect(screen.getByRole("columnheader", { name: "Ticket ID" })).toBeInTheDocument();
     expect(screen.getByText("Jordan Patel")).toBeInTheDocument();
     expect(screen.getByText("Unable to reset administrator password")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Open ticket" })[0]).toHaveAttribute(
+    expect(screen.getByText("High priority")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Open" })[0]).toHaveAttribute(
       "href",
       "/tickets/ticket-1002",
     );
@@ -221,10 +235,10 @@ describe("Tickets routes", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getAllByRole("link", { name: "Open ticket" })[0]).toBeInTheDocument();
+      expect(screen.getAllByRole("link", { name: "Open" })[0]).toBeInTheDocument();
     });
 
-    await user.click(screen.getAllByRole("link", { name: "Open ticket" })[0]);
+    await user.click(screen.getAllByRole("link", { name: "Open" })[0]);
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Run workflow" })).toBeInTheDocument();
@@ -252,17 +266,25 @@ describe("Tickets routes", () => {
     await user.click(screen.getByRole("button", { name: "Run workflow" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Account Unlock Guide")).toBeInTheDocument();
+      expect(screen.getAllByText("ticket-1002 · Run 1234abcd").length).toBeGreaterThan(0);
     });
 
     expect(startRunMock).toHaveBeenCalledWith("ticket-1002");
     expect(fetchRunStateMock).toHaveBeenCalledWith("ticket-ticket-1002-1234abcd");
     expect(fetchRunTimelineMock).toHaveBeenCalledWith("ticket-ticket-1002-1234abcd");
     expect(fetchRunTraceMock).toHaveBeenCalledWith("ticket-ticket-1002-1234abcd");
-    expect(screen.getByText("Current run state")).toBeInTheDocument();
+    expect(screen.getByText("Current run")).toBeInTheDocument();
+    expect(screen.getByText("Run state, timeline, and trace")).toBeInTheDocument();
+    expect(screen.getByText("Current run state")).not.toBeVisible();
     expect(screen.getAllByText("send customer reply").length).toBeGreaterThan(0);
-    expect(screen.getByText("Major steps")).toBeInTheDocument();
-    expect(screen.getByText("Node spans")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Open review" })[0]).toHaveAttribute(
+      "href",
+      "/reviews/ticket-ticket-1002-1234abcd",
+    );
+    await user.click(screen.getByText("Run state, timeline, and trace"));
+    expect(screen.getByText("Current run state")).toBeVisible();
+    expect(screen.getByText("Major steps")).toBeVisible();
+    expect(screen.getByText("Node spans")).toBeVisible();
     expect(screen.getByText(/high impact action requires review/)).toBeInTheDocument();
   });
 
@@ -283,6 +305,36 @@ describe("Tickets routes", () => {
 
     expect(fetchRunTimelineMock).toHaveBeenCalledWith("ticket-ticket-1002-1234abcd");
     expect(fetchRunTraceMock).toHaveBeenCalledWith("ticket-ticket-1002-1234abcd");
+  });
+
+  it("clears the previous run output when navigating to another ticket detail route", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter initialEntries={["/tickets/ticket-1002"]}>
+        <Routes>
+          <Route path="/tickets/:ticketId" element={<TicketDetailWithJump />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Run workflow" })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Run workflow" }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText("ticket-1002 · Run 1234abcd").length).toBeGreaterThan(0);
+    });
+
+    await user.click(screen.getByRole("button", { name: "Jump to second ticket" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "ticket-1003" })).toBeInTheDocument();
+    });
+    expect(screen.queryByText("ticket-1002 · Run 1234abcd")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Hi Jordan Patel/)).not.toBeInTheDocument();
   });
 
   it("shows a recoverable state for a missing ticket route", async () => {

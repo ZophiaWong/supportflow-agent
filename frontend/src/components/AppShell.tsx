@@ -5,10 +5,10 @@ export function AppShell() {
     <div className="app-shell">
       <header className="app-header">
         <div>
-          <p className="app-header__eyebrow">AI support workflow demo</p>
-          <h1>Support Agent Demo</h1>
+          <p className="app-header__eyebrow">AI support operations</p>
+          <h1>SupportFlow Workbench</h1>
           <p className="app-header__description">
-            Scan support queues, run the LangGraph workflow, and review risky AI drafts.
+            Triage tickets, inspect graph runs, and approve risky AI support actions.
           </p>
         </div>
       </header>
@@ -22,7 +22,7 @@ export function AppShell() {
               }
               to="/tickets"
             >
-              Inbox
+              Tickets
             </NavLink>
             <NavLink
               className={({ isActive }) =>
@@ -30,7 +30,7 @@ export function AppShell() {
               }
               to="/reviews"
             >
-              Review Queue
+              Reviews
             </NavLink>
           </nav>
         </aside>

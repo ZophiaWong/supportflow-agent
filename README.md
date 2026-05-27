@@ -14,7 +14,7 @@ The current repository state is the post-MVP workflow portfolio slice:
 - FastAPI pending review endpoint at `GET /api/v1/reviews/pending`
 - FastAPI resume endpoint at `POST /api/v1/runs/{thread_id}/resume`
 - LangGraph workflow with policy gating, approval-gated support actions, human-in-the-loop resume, and inspectable run state
-- React ticket inbox at `/tickets` with run timeline, trace, and state inspection
+- React ticket inbox at `/tickets` and ticket workbench at `/tickets/:ticketId`
 - React review queue at `/reviews`
 - Local Markdown knowledge base with metadata-backed retrieval diagnostics
 - Offline eval CLI comparing `plain_rag_baseline` with `graph_v1`
@@ -43,13 +43,13 @@ The UI then shows:
 - proposed and executed support actions
 - waiting-review state for approval-gated sends and risky tickets
 - final response after approval or safe finalization
-- current run state for the active `thread_id`
-- timeline of major workflow milestones
-- measured graph-node trace spans
+- a readable workflow run label such as `ticket-1001 · Run a1b2c3d4`
+- current run summary for the active `thread_id`
+- optional diagnostics with run state, timeline milestones, and measured graph-node trace spans
 
-The `/tickets` page stores the latest run `thread_id` in local storage and reloads its state and timeline from the backend. Run checkpoints, pending reviews, and timeline events are stored in local SQLite state, so a waiting review can survive a backend restart when the same database path is used.
+The `/tickets/:ticketId` page stores the latest run `thread_id` in local storage and reloads its state, timeline, and trace from the backend. The raw `thread_id` remains the internal workflow identifier, while the UI displays a short run label like `ticket-1001 · Run a1b2c3d4` so repeated runs of the same ticket can be distinguished. Run checkpoints, pending reviews, and timeline events are stored in local SQLite state, so a waiting review can survive a backend restart when the same database path is used.
 
-For approval-gated or risky tickets, open `/reviews` to:
+For approval-gated or risky tickets, use the `Open review` link on the ticket workbench or open `/reviews` to:
 
 - inspect the draft and supporting knowledge
 - approve the draft and proposed support actions
@@ -100,6 +100,8 @@ Key frontend files:
 
 - `frontend/src/pages/TicketsPage.tsx`: main inbox page
 - `frontend/src/components/RunStatePanel.tsx`: current run-state display
+- `frontend/src/components/WorkflowRunSummary.tsx`: readable current workflow run summary
+- `frontend/src/components/RunDiagnostics.tsx`: collapsed run state, timeline, and trace diagnostics
 - `frontend/src/components/WorkflowTimeline.tsx`: major-step timeline display
 - `frontend/src/components/WorkflowTrace.tsx`: graph-node trace display
 - `frontend/src/components/PolicyAssessmentList.tsx`: policy check display
@@ -109,6 +111,7 @@ Key frontend files:
 - `frontend/src/components/TicketDetail.tsx`: selected ticket detail
 - `frontend/src/components/WorkflowResultPanel.tsx`: workflow output display
 - `frontend/src/lib/api.ts`: frontend API calls
+- `frontend/src/lib/runLabels.ts`: user-facing workflow run labels
 - `frontend/src/lib/types.ts`: shared frontend types
 
 ## Run the backend
@@ -179,12 +182,14 @@ Restart the frontend dev server after changing this file. For production builds,
 Use the shipped demo tickets to confirm the main behaviors:
 
 - `ticket-1003` should pause in `waiting_review`, show a proposed `send_customer_reply` action, and appear on `/reviews` because customer sends require approval.
+- The ticket workbench for `ticket-1003` should show a readable run label such as `ticket-1003 · Run <suffix>` and an `Open review` link that goes directly to `/reviews/<thread_id>`.
 - Approving `ticket-1003` should finish the run, execute the proposed send action once, show a `Final response`, and show completed timeline and trace data.
 - `ticket-1001` should pause in `waiting_review`, show billing/sensitive policy details and an interrupt event, and appear on `/reviews`.
+- If the same ticket has multiple pending reviews, `/reviews` should distinguish them with labels like `ticket-1001 · Run a1b2c3d4`.
 - Approving or editing a pending review should finish the run and show a completed result.
 - Rejecting a pending review should end in `manual_takeover` with no final AI response.
 
-Each workflow run gets a unique `thread_id`, so rerunning the same ticket starts a fresh review item instead of reusing older graph state.
+Each workflow run gets a unique `thread_id`, so rerunning the same ticket starts a fresh review item instead of reusing older graph state. The default ticket view keeps diagnostics collapsed; expand `Run state, timeline, and trace` when debugging graph state or node spans.
 
 ## Offline evaluation
 

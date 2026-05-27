@@ -1,4 +1,5 @@
 import type { RunTicketResponse } from "../lib/types";
+import { formatRunLabel } from "../lib/runLabels";
 import { PolicyAssessmentList } from "./PolicyAssessmentList";
 import { SupportActionList } from "./SupportActionList";
 
@@ -36,35 +37,21 @@ export function WorkflowResultPanel({ result, error }: WorkflowResultPanelProps)
       </div>
 
       <div className="result-section">
+        <h3>Draft reply</h3>
+        <p className="draft-reply">{result.draft.answer}</p>
+        <p className="draft-meta">
+          Confidence {result.draft.confidence.toFixed(2)} | Citations:{" "}
+          {result.draft.citations.length > 0 ? result.draft.citations.join(", ") : "None"}
+        </p>
+      </div>
+
+      <div className="result-section">
         <h3>Classification</h3>
         <div className="result-tags">
           <span className="pill pill--workflow">{result.classification.category}</span>
           <span className="pill pill--workflow">{result.classification.priority}</span>
         </div>
         <p>{result.classification.reason}</p>
-      </div>
-
-      <div className="result-section">
-        <h3>Knowledge evidence</h3>
-        <ul className="result-list">
-          {result.retrieved_chunks.map((hit) => (
-            <li key={hit.doc_id} className="result-list__item">
-              <div className="result-list__row">
-                <strong>{hit.title}</strong>
-                <span>Score {hit.score.toFixed(2)}</span>
-              </div>
-              <p className="draft-meta">
-                {hit.category ? `Category ${hit.category}` : "Category unknown"} |{" "}
-                {hit.category_match ? "category match" : "category not matched"} | Boost{" "}
-                {(hit.category_boost ?? 0).toFixed(2)}
-              </p>
-              {(hit.matched_terms ?? []).length > 0 ? (
-                <p className="draft-meta">Matched terms: {(hit.matched_terms ?? []).join(", ")}</p>
-              ) : null}
-              <p>{hit.snippet}</p>
-            </li>
-          ))}
-        </ul>
       </div>
 
       {result.risk_assessment ? (
@@ -88,20 +75,6 @@ export function WorkflowResultPanel({ result, error }: WorkflowResultPanelProps)
         <PolicyAssessmentList assessment={result.policy_assessment} />
       </div>
 
-      <div className="result-section">
-        <h3>Support actions</h3>
-        <SupportActionList actions={result.proposed_actions ?? []} />
-      </div>
-
-      <div className="result-section">
-        <h3>Draft reply</h3>
-        <p className="draft-reply">{result.draft.answer}</p>
-        <p className="draft-meta">
-          Confidence {result.draft.confidence.toFixed(2)} | Citations:{" "}
-          {result.draft.citations.length > 0 ? result.draft.citations.join(", ") : "None"}
-        </p>
-      </div>
-
       {result.status === "waiting_review" && result.pending_review ? (
         <div className="result-section">
           <h3>Human review required</h3>
@@ -109,7 +82,9 @@ export function WorkflowResultPanel({ result, error }: WorkflowResultPanelProps)
             This ticket is paused for reviewer action. Open the review queue to approve, edit, or
             reject the draft.
           </p>
-          <p className="draft-meta">Thread {result.pending_review.thread_id}</p>
+          <p className="draft-meta">
+            {formatRunLabel(result.pending_review.ticket_id, result.pending_review.thread_id)}
+          </p>
         </div>
       ) : null}
 
@@ -132,6 +107,34 @@ export function WorkflowResultPanel({ result, error }: WorkflowResultPanelProps)
           <p>A reviewer rejected the AI draft. A human agent must handle this ticket manually.</p>
         </div>
       ) : null}
+
+      <details className="inline-disclosure">
+        <summary>Knowledge evidence</summary>
+        <ul className="result-list">
+          {result.retrieved_chunks.map((hit) => (
+            <li key={hit.doc_id} className="result-list__item">
+              <div className="result-list__row">
+                <strong>{hit.title}</strong>
+                <span>Score {hit.score.toFixed(2)}</span>
+              </div>
+              <p className="draft-meta">
+                {hit.category ? `Category ${hit.category}` : "Category unknown"} |{" "}
+                {hit.category_match ? "category match" : "category not matched"} | Boost{" "}
+                {(hit.category_boost ?? 0).toFixed(2)}
+              </p>
+              {(hit.matched_terms ?? []).length > 0 ? (
+                <p className="draft-meta">Matched terms: {(hit.matched_terms ?? []).join(", ")}</p>
+              ) : null}
+              <p>{hit.snippet}</p>
+            </li>
+          ))}
+        </ul>
+      </details>
+
+      <details className="inline-disclosure">
+        <summary>Support actions</summary>
+        <SupportActionList actions={result.proposed_actions ?? []} />
+      </details>
     </section>
   );
 }

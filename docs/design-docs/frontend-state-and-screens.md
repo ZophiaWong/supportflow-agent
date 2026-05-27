@@ -59,10 +59,11 @@ Route:
 Purpose:
 
 - list demo tickets
-- select one ticket
+- open a ticket workbench
 - run workflow
 - show workflow result
-- inspect the current run state and timeline for the latest `thread_id`
+- show the current workflow run summary for the latest `thread_id`
+- keep run state, timeline, and trace available as diagnostics rather than default reading content
 
 Layout:
 
@@ -70,12 +71,12 @@ Layout:
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ Header: SupportFlow Agent                                                   │
 ├───────────────┬─────────────────────────────┬───────────────────────────────┤
-│ Ticket List   │ Ticket Detail + Result      │ Run State + Workflow Timeline │
+│ Ticket List   │ Ticket Detail + Result      │ Workflow Runs                 │
 │               │                             │                               │
 │ ticket-1001   │ title/content/customer tier │ status                        │
 │ ticket-1002   │ [Run workflow]              │ current_node                  │
-│ ticket-1003   │ evidence/draft/final reply  │ run_started                   │
-│               │                             │ interrupt_created/done        │
+│ ticket-1003   │ draft/risk/final reply      │ ticket-1001 · Run a1b2c3d4    │
+│               │ diagnostics collapsed       │ Open review when needed       │
 └───────────────┴─────────────────────────────┴───────────────────────────────┘
 ```
 
@@ -85,8 +86,8 @@ Minimum components:
 TicketList
 TicketDetail
 WorkflowResultPanel
-RunStatePanel
-WorkflowTimeline
+WorkflowRunSummary
+RunDiagnostics
 ```
 
 ### 3.2 Review queue page
@@ -100,6 +101,7 @@ Route:
 Purpose:
 
 - show pending review requests
+- distinguish repeated workflow runs for the same ticket
 - approve/edit/reject
 - resume graph
 
@@ -109,10 +111,10 @@ Layout:
 ┌────────────────────────────────────────────────────────────────┐
 │ Review Queue                                                   │
 ├───────────────┬─────────────────────────────┬──────────────────┤
-│ Pending Items │ Draft + Evidence            │ Decision Form    │
+│ Review Cases  │ Draft + Evidence            │ Decision Form    │
 │               │                             │                  │
-│ REV-1001      │ draft answer                │ approve          │
-│ REV-1002      │ citations                   │ edit textarea    │
+│ ticket-1001 · │ draft answer                │ approve          │
+│ Run a1b2c3d4  │ citations                   │ edit textarea    │
 │               │ risk flags                  │ reject           │
 └───────────────┴─────────────────────────────┴──────────────────┘
 ```
@@ -126,6 +128,14 @@ DraftPanel
 EvidencePanel
 RiskFlagList
 ```
+
+The user-facing review case label is:
+
+```text
+{ticket_id} · Run {thread_id.slice(-8)}
+```
+
+The full `thread_id` remains the route and API identifier. If `/reviews` is opened with `?currentThreadId=<thread_id>`, the matching row should show a `Current` marker.
 
 ### 3.3 Knowledge page
 
@@ -168,6 +178,7 @@ type TicketsPageState = {
   activeThreadId: string | null;
   runState: RunStateResponse | null;
   timeline: RunTimelineEvent[];
+  trace: RunTraceEvent[];
   isRunning: boolean;
   isInspectingRun: boolean;
   error: string | null;
@@ -194,6 +205,7 @@ const showReviewHint = activeRun?.status === "waiting_review";
 const showFinalReply = activeRun?.final_response != null;
 const showDraft = activeRun?.draft != null;
 const shouldPoll = runState?.status === "running" || runState?.status === "waiting_review";
+const runLabel = activeThreadId ? `${ticketId} · Run ${activeThreadId.slice(-8)}` : null;
 ```
 
 ## 5. API integration
@@ -276,35 +288,41 @@ Build:
 
 ## 7. Workflow result panel
 
-Must display:
+Must display by default:
 
+- draft answer
+- confidence
 - category
 - priority
 - classification reason
-- retrieved evidence
-- draft answer
 - citations
-- confidence
 - risk flags
 - final status
+- review or final action
+
+May display behind disclosure:
+
+- retrieved evidence
+- proposed action ledger
 - current `thread_id`
 
-Day 4 adds a separate run inspection column that shows:
+Run inspection is a diagnostics surface that shows:
 
 - run status
 - current node
 - timeline of major-step events
+- trace spans
 - refresh-safe inspection of the latest saved `thread_id`
 
 Recommended order:
 
 ```text
-1. Status badge
+1. Draft
 2. Classification
-3. Evidence
-4. Draft
-5. Risk/review
-6. Final reply
+3. Risk/policy
+4. Review or final state
+5. Evidence disclosure
+6. Action disclosure
 ```
 
 ## 8. Evidence panel

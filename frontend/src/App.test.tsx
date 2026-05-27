@@ -14,7 +14,9 @@ vi.mock("./lib/api", () => ({
   fetchPendingReviews: fetchPendingReviewsMock,
   fetchRunState: vi.fn(),
   fetchRunTimeline: vi.fn(),
+  fetchRunTrace: vi.fn(),
   runTicket: vi.fn(),
+  startRun: vi.fn(),
   resumeRun: vi.fn(),
 }));
 
@@ -33,11 +35,11 @@ describe("AppRoutes", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("heading", { name: "Support Agent Demo" })).toBeInTheDocument();
-    expect(screen.getByText("AI support workflow demo")).toBeInTheDocument();
-    expect(screen.getByText(/Scan support queues/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Inbox" })).toHaveAttribute("href", "/tickets");
-    expect(screen.getByRole("link", { name: "Review Queue" })).toHaveAttribute("href", "/reviews");
+    expect(screen.getByRole("heading", { name: "SupportFlow Workbench" })).toBeInTheDocument();
+    expect(screen.getByText("AI support operations")).toBeInTheDocument();
+    expect(screen.getByText(/Triage tickets/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Tickets" })).toHaveAttribute("href", "/tickets");
+    expect(screen.getByRole("link", { name: "Reviews" })).toHaveAttribute("href", "/reviews");
 
     await waitFor(() => {
       expect(screen.getByText("No tickets available.")).toBeInTheDocument();
