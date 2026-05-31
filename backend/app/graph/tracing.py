@@ -99,6 +99,12 @@ def _attributes_for_node(node_name: str, values: Mapping[str, Any]) -> dict[str,
     if classification is not None:
         attributes["classification_category"] = classification.category
         attributes["classification_priority"] = classification.priority
+        classification_source = values.get("classification_source")
+        if classification_source is not None:
+            attributes["classification_source"] = classification_source
+        classification_llm_error = values.get("classification_llm_error")
+        if classification_llm_error is not None:
+            attributes["classification_llm_error"] = classification_llm_error
 
     retrieved_chunks = values.get("retrieved_chunks")
     if retrieved_chunks is not None:
@@ -109,6 +115,12 @@ def _attributes_for_node(node_name: str, values: Mapping[str, Any]) -> dict[str,
     if draft is not None:
         attributes["draft_confidence"] = draft.confidence
         attributes["draft_citations"] = draft.citations
+        draft_source = values.get("draft_source")
+        if draft_source is not None:
+            attributes["draft_source"] = draft_source
+        draft_llm_error = values.get("draft_llm_error")
+        if draft_llm_error is not None:
+            attributes["draft_llm_error"] = draft_llm_error
 
     risk_assessment = values.get("risk_assessment")
     if risk_assessment is not None:

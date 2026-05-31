@@ -1,5 +1,6 @@
 from app.graph.state import TicketState
 from app.schemas.graph import TicketClassification
+from app.services import llm
 
 
 PRIORITY_MAP = {
@@ -26,6 +27,14 @@ def _match_category(text: str) -> tuple[str, str]:
 
 def classify_ticket(state: TicketState) -> TicketState:
     ticket = state["ticket"]
+    llm_result = llm.generate_ticket_classification(ticket)
+    if llm_result.value is not None:
+        return {
+            "classification": llm_result.value,
+            "classification_source": "llm",
+            "current_node": "classify_ticket",
+        }
+
     text = " ".join(
         [
             str(ticket.get("subject", "")),
@@ -35,11 +44,15 @@ def classify_ticket(state: TicketState) -> TicketState:
     category, reason = _match_category(text)
     source_priority = str(ticket.get("priority", "medium")).lower()
 
-    return {
+    result: TicketState = {
         "classification": TicketClassification(
             category=category,
             priority=PRIORITY_MAP.get(source_priority, "P2"),
             reason=reason,
         ),
+        "classification_source": "fallback",
         "current_node": "classify_ticket",
     }
+    if llm_result.error_reason:
+        result["classification_llm_error"] = llm_result.error_reason
+    return result

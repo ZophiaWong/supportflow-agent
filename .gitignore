@@ -10,6 +10,8 @@ frontend/coverage/
 
 # Local environment files
 .env
+.env.*
+!.env.example
 
 # Generated offline evaluation outputs
 data/evals/results/
@@ -19,3 +21,6 @@ data/evals/candidates/
 data/*.sqlite3
 data/*.sqlite3-shm
 data/*.sqlite3-wal
+
+# vscode
+.vscode

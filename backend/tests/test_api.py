@@ -171,6 +171,7 @@ def test_run_trace_endpoint_reads_approval_gated_interrupt_spans() -> None:
     assert by_node["risk_gate"].attributes["failed_policy_ids"] == [
         "high_impact_action_requires_review"
     ]
+    assert by_node["draft_reply"].attributes["draft_source"] == "fallback"
     assert by_node["human_review_interrupt"].attributes["proposed_action_types"] == [
         "send_customer_reply"
     ]

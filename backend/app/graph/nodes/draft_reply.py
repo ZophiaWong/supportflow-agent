@@ -1,5 +1,6 @@
 from app.graph.state import TicketState
 from app.schemas.graph import DraftReply
+from app.services import llm
 
 
 def draft_reply(state: TicketState) -> TicketState:
@@ -7,6 +8,19 @@ def draft_reply(state: TicketState) -> TicketState:
     classification = state["classification"]
     retrieved_chunks = state.get("retrieved_chunks", [])
     customer_name = str(ticket.get("customer_name", "there"))
+
+    llm_result = llm.generate_draft_reply(
+        ticket=ticket,
+        classification=classification,
+        retrieved_chunks=retrieved_chunks,
+    )
+    if llm_result.value is not None:
+        return {
+            "draft": llm_result.value,
+            "draft_source": "llm",
+            "status": "running",
+            "current_node": "draft_reply",
+        }
 
     if retrieved_chunks:
         lead_hit = retrieved_chunks[0]
@@ -38,12 +52,16 @@ def draft_reply(state: TicketState) -> TicketState:
         citations = []
         confidence = 0.35
 
-    return {
+    result: TicketState = {
         "draft": DraftReply(
             answer=answer,
             citations=citations,
             confidence=confidence,
         ),
+        "draft_source": "fallback",
         "status": "running",
         "current_node": "draft_reply",
     }
+    if llm_result.error_reason:
+        result["draft_llm_error"] = llm_result.error_reason
+    return result

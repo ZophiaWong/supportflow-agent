@@ -19,9 +19,13 @@ class TicketState(TypedDict, total=False):
     ticket_source: Literal["demo", "eval"]
     ticket: dict[str, Any]
     classification: TicketClassification
+    classification_source: Literal["llm", "fallback"]
+    classification_llm_error: str
     retrieval_query: str
     retrieved_chunks: list[KBHit]
     draft: DraftReply
+    draft_source: Literal["llm", "fallback"]
+    draft_llm_error: str
     risk_assessment: RiskAssessment
     policy_assessment: PolicyAssessment
     proposed_actions: list[SupportAction]

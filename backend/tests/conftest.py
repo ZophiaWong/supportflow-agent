@@ -11,6 +11,7 @@ def isolated_runtime_database(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> Generator[None, None, None]:
     monkeypatch.setenv("SUPPORTFLOW_DB_PATH", str(tmp_path / "supportflow.sqlite3"))
+    monkeypatch.setenv("SUPPORTFLOW_LLM_ENABLED", "false")
     get_support_graph.cache_clear()
     clear_runtime_tables()
     yield

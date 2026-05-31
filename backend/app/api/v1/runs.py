@@ -94,7 +94,12 @@ def _append_major_run_events(
                 status="running",
                 node_name="classify_ticket",
                 message="Ticket classification is available.",
-                payload={"category": classification.category, "priority": classification.priority},
+                payload={
+                    "category": classification.category,
+                    "priority": classification.priority,
+                    "source": result.get("classification_source"),
+                    "llm_error": result.get("classification_llm_error"),
+                },
             )
         )
 
@@ -119,7 +124,11 @@ def _append_major_run_events(
                 status="running",
                 node_name="draft_reply",
                 message="Draft reply generated.",
-                payload={"confidence": draft.confidence},
+                payload={
+                    "confidence": draft.confidence,
+                    "source": result.get("draft_source"),
+                    "llm_error": result.get("draft_llm_error"),
+                },
             )
         )
 

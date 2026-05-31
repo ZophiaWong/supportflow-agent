@@ -44,13 +44,33 @@ function TraceAttributes({ event }: { event: RunTraceEvent }) {
     typeof event.attributes.review_decision === "string"
       ? event.attributes.review_decision
       : null;
+  const draftSource =
+    typeof event.attributes.draft_source === "string"
+      ? event.attributes.draft_source
+      : null;
+  const draftLlmError =
+    typeof event.attributes.draft_llm_error === "string"
+      ? event.attributes.draft_llm_error
+      : null;
+  const classificationSource =
+    typeof event.attributes.classification_source === "string"
+      ? event.attributes.classification_source
+      : null;
+  const classificationLlmError =
+    typeof event.attributes.classification_llm_error === "string"
+      ? event.attributes.classification_llm_error
+      : null;
 
   if (
     failedPolicyIds.length === 0 &&
     proposedActionTypes.length === 0 &&
     executedActionTypes.length === 0 &&
     !finalDisposition &&
-    !reviewDecision
+    !reviewDecision &&
+    !draftSource &&
+    !draftLlmError &&
+    !classificationSource &&
+    !classificationLlmError
   ) {
     return null;
   }
@@ -66,6 +86,14 @@ function TraceAttributes({ event }: { event: RunTraceEvent }) {
       {executedActionTypes.length > 0 ? (
         <p>Executed actions: {executedActionTypes.map(formatTraceToken).join(", ")}</p>
       ) : null}
+      {classificationSource ? (
+        <p>Classification source: {formatTraceToken(classificationSource)}</p>
+      ) : null}
+      {classificationLlmError ? (
+        <p>Classification LLM error: {formatTraceToken(classificationLlmError)}</p>
+      ) : null}
+      {draftSource ? <p>Draft source: {formatTraceToken(draftSource)}</p> : null}
+      {draftLlmError ? <p>Draft LLM error: {formatTraceToken(draftLlmError)}</p> : null}
       {reviewDecision ? <p>Review decision: {formatTraceToken(reviewDecision)}</p> : null}
       {finalDisposition ? <p>Disposition: {formatTraceToken(finalDisposition)}</p> : null}
     </div>

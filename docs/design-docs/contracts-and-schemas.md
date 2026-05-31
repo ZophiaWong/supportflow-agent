@@ -368,13 +368,13 @@ export type DraftReply = {
 
 ## 8. Contract failure policy
 
-| Failure                 | Example                         | Handling                   |
-| ----------------------- | ------------------------------- | -------------------------- |
-| Invalid LLM output      | missing `category`              | retry once, then fail node |
-| Missing citation        | draft cites unknown chunk       | force review               |
-| No KB hits              | empty `retrieved_chunks`        | low confidence + review    |
-| API response mismatch   | response_model validation error | fail request loudly        |
-| Frontend unknown status | new enum not handled            | show fallback badge + log  |
+| Failure                 | Example                         | Handling                                      |
+| ----------------------- | ------------------------------- | --------------------------------------------- |
+| Invalid LLM output      | missing `category`              | record sanitized error + deterministic fallback |
+| Missing citation        | draft cites unknown chunk       | reject LLM draft + deterministic fallback     |
+| No KB hits              | empty `retrieved_chunks`        | low confidence + review                       |
+| API response mismatch   | response_model validation error | fail request loudly                           |
+| Frontend unknown status | new enum not handled            | show fallback badge + log                     |
 
 Do not silently coerce unsupported values into valid-looking outputs.
 
@@ -386,8 +386,9 @@ When using LLM for structured output:
 - validate the returned object
 - never parse important fields by regex
 - store validation errors in state/events
-- retry only when likely recoverable
-- after retry failure, route to human review or manual takeover
+- do not coerce provider wrapper fields such as `response`, `message`, or `text` into valid domain fields
+- fall back to deterministic node behavior when LLM output is invalid
+- future retry logic should only run before fallback when the failure is likely transient or recoverable
 
 ## 10. Testing
 

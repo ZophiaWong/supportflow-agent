@@ -156,6 +156,30 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/runs/<thread_id>/resume \
 
 Durable state note: by default, local workflow state is stored in `data/supportflow.sqlite3`. Set `SUPPORTFLOW_DB_PATH=/path/to/supportflow.sqlite3` before starting the backend to choose a different database. Reusing the same database path lets pending reviews, run timelines, and LangGraph checkpoints survive a backend restart. Local SQLite files under `data/*.sqlite3*` are ignored by git.
 
+### Optional LLM generation
+
+SupportFlow runs without an LLM by default. When LLM generation is disabled or unavailable, the graph uses deterministic classification and draft fallbacks so local tests and demos remain reproducible.
+
+To enable the first LLM integration for `classify_ticket` and `draft_reply`, copy the example env file and edit the local `.env`:
+
+```bash
+cp .env.example .env
+```
+
+```env
+SUPPORTFLOW_LLM_ENABLED=true
+OPENAI_API_KEY=<your_api_key>
+SUPPORTFLOW_LLM_MODEL=gpt-4o-mini
+SUPPORTFLOW_LLM_BASE_URL=https://api.openai.com/v1
+SUPPORTFLOW_LLM_TIMEOUT_SECONDS=20
+```
+
+The root `.env` file is ignored by git. Keep `.env.example` checked in with placeholder values only.
+
+LLM requests are sent to `{SUPPORTFLOW_LLM_BASE_URL}/chat/completions`. LLM outputs are validated with the existing Pydantic workflow schemas. Draft citations must reference retrieved KB `doc_id` values; invalid output, provider-wrapped responses such as `{"response": "..."}`, unknown citations, request failures, missing API keys, or timeouts record a sanitized error reason and fall back to the deterministic node behavior. The policy gate, review interrupt/resume flow, and support action execution remain rule-driven.
+
+To tell whether classification or drafting came from the LLM or the deterministic fallback, inspect the `classify_ticket` and `draft_reply` spans from `GET /api/v1/runs/{thread_id}/trace` or expand the frontend diagnostics panel. The span attributes include `classification_source` and `draft_source` with `"llm"` or `"fallback"` values, and fallback spans include `classification_llm_error` or `draft_llm_error` when an LLM call failed.
+
 ## Run the frontend
 
 ```bash
@@ -286,7 +310,7 @@ This repository intentionally does not yet include:
 - streaming
 - hosted LangSmith tracing
 - vector retrieval
-- real LLM generation
+- mandatory LLM generation
 - external ticket system integration
 - real external message write-back
 
