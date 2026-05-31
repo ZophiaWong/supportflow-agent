@@ -4,7 +4,7 @@
 
 This roadmap defines post-MVP features for `supportflow-agent` as a job-seeking portfolio project for AI Agent Engineer roles.
 
-The goal is to make the project demonstrate production-oriented agent engineering: stateful workflow orchestration, safe tool use, human-in-the-loop control, observability, evaluation, RAG quality, and a usable full-stack product surface. The project should remain a single LangGraph workflow app. Do not add multi-agent patterns unless a later product spec explicitly changes that constraint.
+The goal is to make the project demonstrate production-oriented agent engineering: stateful workflow orchestration, safe tool use, human-in-the-loop control, observability, evaluation, RAG quality, selective multi-agent quality control, and a usable full-stack product surface. The default product path should remain a clear LangGraph workflow, but multi-agent work is no longer rejected by default for portfolio purposes. Multi-agent additions should solve a concrete quality or safety problem and should be evaluated against `docs/product-specs/ai-engineer-portfolio-gap-audit-2026-05-31.md`.
 
 ## Market Signal Summary
 
@@ -16,6 +16,7 @@ Current AI Agent Engineer postings and framework docs repeatedly emphasize these
 - RAG, prompt engineering, and grounded outputs with citations.
 - Safety, guardrails, reliability, and production readiness.
 - Observability, tracing, debugging, and evaluation loops.
+- Multi-agent systems when they provide clear reviewer, critic, specialist, or routing value.
 - Python, FastAPI, React, and practical full-stack delivery.
 
 Sources used on 2026-04-27:
@@ -192,6 +193,28 @@ Resume Talking Point:
 
 - "I improved RAG from a demo lookup into a managed knowledge pipeline with metadata, diagnostics, and evals."
 
+### P2: Reviewer/Critic Agent Quality Gate
+
+Problem: Current AI Agent Engineer roles often mention multi-agent systems, but this project should not add multiple agents only for appearance. The highest-value multi-agent slice is a focused reviewer or critic agent that independently checks the main workflow's draft, citations, evidence, and proposed actions before final routing.
+
+Build:
+
+- Add a structured reviewer/critic node after drafting and action proposal.
+- Return a Pydantic review assessment with groundedness, citation support, unsupported claims, unsafe action flags, missing evidence, escalation recommendation, confidence, and rationale.
+- Feed critic findings into the existing risk gate and human-review payload.
+- Keep deterministic critic checks as the local baseline; optional LLM critique must fall back safely.
+- Add eval fixtures that prove the critic catches missing citations, hallucination, prompt injection, unsafe refund or credit actions, and low-evidence high-confidence drafts.
+
+Acceptance:
+
+- Critic findings can independently require human review.
+- The review UI shows critic findings beside policy checks.
+- Offline eval fails when expected critic findings are missing.
+
+Resume Talking Point:
+
+- "I added a focused multi-agent quality gate where a reviewer agent checks grounding, citations, and action safety before the workflow can finalize."
+
 ### P2: Streaming Workflow UX
 
 Problem: Agent workflows are easier to understand when progress is visible as nodes complete. This is a high-impact UI feature that demonstrates full-stack agent product sense.
@@ -241,15 +264,16 @@ Resume Talking Point:
 4. Trace and Observability Dashboard
 5. Evaluation Flywheel
 6. Knowledge Base Operations and Retrieval Quality
-7. Streaming Workflow UX
-8. Demo and Deployment Readiness
+7. Reviewer/Critic Agent Quality Gate
+8. Streaming Workflow UX
+9. Demo and Deployment Readiness
 
 This sequence prioritizes the strongest engineering signal first. Durable state unlocks credible human-in-the-loop behavior. Tool actions and guardrails make the agent feel production-relevant. Observability and evals make the behavior inspectable and measurable. Retrieval, streaming, and deployment polish the portfolio.
 
-## Features To Avoid For Now
+## Features To Defer Or Keep Narrow
 
-- Multi-agent routing or agent-to-agent communication.
-  Rationale: Job postings mention it, but this repo explicitly says not to introduce multi-agent patterns. A reliable single workflow is a clearer signal.
+- Broad supervisor routing or specialist-agent teams.
+  Rationale: Multi-agent capability is valuable for job seeking, but the first implementation should be a Reviewer/Critic Agent quality gate. Specialist agents, multi-source RAG agents, and supervisor/router patterns should wait until the RAG corpus and evals are strong enough to justify them.
 
 - Real email or ticketing write-back.
   Rationale: A simulated tool layer demonstrates the same side-effect design without account setup, secrets, or external failure modes.
@@ -276,4 +300,14 @@ The roadmap is successful when a hiring reviewer can see:
 
 ## Next ExecPlan Recommendation
 
-Create one active ExecPlan for `Durable Workflow State`. It should cover backend storage, graph checkpointing, API behavior, frontend reload behavior, tests, and documentation. This is a multi-file feature touching backend, frontend, graph state, and acceptance evidence, so it requires an ExecPlan under `docs/exec-plans/active/`.
+The 2026-05-31 portfolio gap audit supersedes the older single-next-plan recommendation for job-seeking prioritization. The first todo ExecPlans derived from that audit are:
+
+- `docs/exec-plans/todo/2026-05-31-01-rag-data-retrieval-eval-foundation.md`
+- `docs/exec-plans/todo/2026-05-31-02-langgraph-checkpoint-retry-replay-demo.md`
+- `docs/exec-plans/todo/2026-05-31-03-reviewer-critic-agent-quality-gate.md`
+
+Move only one of these to `docs/exec-plans/active/` when implementation begins.
+
+## Revision Notes
+
+2026-05-31: Added a pointer to `docs/product-specs/ai-engineer-portfolio-gap-audit-2026-05-31.md` and updated the roadmap's multi-agent stance. The roadmap no longer treats multi-agent as something to reject by default for portfolio purposes. The recommended first multi-agent form is a Reviewer/Critic Agent quality gate after the RAG and eval foundation is clarified.
