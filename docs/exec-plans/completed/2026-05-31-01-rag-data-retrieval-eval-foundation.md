@@ -79,7 +79,11 @@ Completed on 2026-06-01. The local KB expanded from 4 to 15 Markdown documents, 
 
 The generated dataset profile now shows scenario coverage by category, split, evidence condition, intended failure mode, risk level, expected review routing, expected terminal status, and expected retrieval document. The offline eval now compares three targets: `plain_rag_baseline`, `rag_policy_baseline`, and `graph_v1`.
 
-Final validation on 2026-06-01 reported:
+Final validation on 2026-06-01 reported that backend tests pass:
+
+    61 passed
+
+The offline eval command reported:
 
     target=plain_rag_baseline examples=39 category_accuracy=null retrieval_hit_rate=1.00 citation_coverage=1.00 citation_support_rate=1.00 claim_support_rate=0.82 review_trigger_accuracy=0.21 final_pass_rate=0.21 bad_cases=130
     target=rag_policy_baseline examples=39 category_accuracy=1.00 retrieval_hit_rate=1.00 citation_coverage=1.00 citation_support_rate=1.00 claim_support_rate=0.85 review_trigger_accuracy=0.87 final_pass_rate=0.21 bad_cases=108
@@ -93,7 +97,7 @@ The backend is a FastAPI and LangGraph app under `backend/`. Demo tickets live i
 
 The retrieval service is `backend/app/services/retrieval.py`. It currently tokenizes a query, compares token overlap against Markdown KB documents, adds a category boost when the ticket classification matches a document category, and returns `KBHit` objects. The graph node that calls retrieval is `backend/app/graph/nodes/retrieve_knowledge.py`. Draft generation is in `backend/app/graph/nodes/draft_reply.py` and optional LLM generation is in `backend/app/services/llm.py`.
 
-Offline evals are implemented under `backend/app/evals/`. `backend/app/evals/targets.py` defines target runners, `backend/app/evals/scoring.py` defines metric scoring, and `backend/scripts/run_offline_eval.py` is the CLI entrypoint. The current eval compares `plain_rag_baseline` against `graph_v1`.
+Offline evals are implemented under `backend/app/evals/`. `backend/app/evals/targets.py` defines target runners, `backend/app/evals/scoring.py` defines metric scoring, and `backend/scripts/run_offline_eval.py` is the CLI entrypoint. The current eval compares `plain_rag_baseline`, `rag_policy_baseline`, and `graph_v1`.
 
 In this plan, "RAG" means retrieval-augmented generation: the workflow retrieves support knowledge first, then uses that evidence when drafting or reviewing a customer response. "Claim-level citation" means checking whether specific statements in the answer are supported by specific retrieved evidence spans, instead of only checking whether the answer includes a document ID.
 
@@ -204,3 +208,5 @@ Do not add a hosted vector database in this plan. If vector retrieval is added, 
 2026-05-31: Initial todo ExecPlan created from the portfolio gap audit. The plan prioritizes local data, retrieval diagnostics, stronger baselines, and eval credibility before hosted retrieval infrastructure.
 
 2026-06-01: Implemented the RAG/eval foundation and revised the plan to match actual results. The work added dataset governance, profiling, a stronger policy baseline, claim-support checks, deterministic offline eval behavior, expanded KB/tickets/eval data, README updates, and interview-prep docs grounded in generated evidence.
+
+2026-06-01: Addressed pre-archive review notes by recording backend test pass evidence and correcting the target-comparison description before moving this plan to completed.

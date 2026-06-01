@@ -1,15 +1,15 @@
-# Interview Prep
+# 面试准备材料
 
-This folder stores focused interview-preparation notes that are backed by repository evidence. Each document should cover one narrow topic and link to concrete code, data, eval output, or generated reports.
+这个目录用于沉淀有仓库证据支撑的面试准备材料。每份文档只聚焦一个具体方向，并尽量链接到代码、数据、eval 输出或生成报告。
 
-Use this structure for future notes:
+后续新增文档建议沿用这个结构：
 
-- Question overview first, without answers, for quick review.
-- Short positioning statement for what the project can honestly claim.
-- Objections and responses tied to current repo evidence.
-- Evidence to open during preparation.
-- Careful wording: what not to overclaim.
+- 先放问题总览，不写答案，方便快速复习。
+- 简短说明这个方向可以诚实主张什么。
+- 针对可能质疑给出回答，并绑定当前仓库证据。
+- 列出准备时应该打开的证据文件。
+- 单独列出需要谨慎措辞、不能过度声称的内容。
 
-Current notes:
+当前文档：
 
-- `synthetic-rag-eval-credibility.md`: questions and evidence for synthetic data, RAG eval credibility, dataset control, and non-perfect eval scores.
+- `synthetic-rag-eval-credibility.md`：围绕 synthetic 数据、RAG eval 可信度、offline eval 必要性、RAG/eval 指标解释、手动 demo 方法和非满分 eval 结果的面试问题与证据。

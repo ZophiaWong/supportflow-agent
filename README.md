@@ -259,11 +259,11 @@ uv run --cache-dir /tmp/uv-cache python -m app.services.kb_ingestion
 
 Workflow responses include retrieval diagnostics on each KB hit, including matched terms, category match, category boost, document metadata, and citation id.
 
-Use thresholds for CI-friendly regression checks. Thresholds default to the `graph_v1` target:
+Use thresholds for CI-friendly regression checks. Thresholds default to the `graph_v1` target. The current expanded challenge set is intentionally not perfect, so the example below tracks the documented baseline rather than requiring every scenario to pass:
 
 ```bash
 cd backend
-uv run --cache-dir /tmp/uv-cache python scripts/run_offline_eval.py --min-final-pass-rate 1.0 --min-citation-coverage 1.0 --min-policy-trigger-accuracy 1.0
+uv run --cache-dir /tmp/uv-cache python scripts/run_offline_eval.py --min-final-pass-rate 0.67 --min-citation-coverage 1.0 --min-policy-trigger-accuracy 0.79
 ```
 
 To draft a new eval fixture candidate without modifying the checked-in dataset:
