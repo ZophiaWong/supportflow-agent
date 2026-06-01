@@ -33,7 +33,7 @@ def test_healthz_returns_ok() -> None:
 def test_list_tickets_returns_mock_data() -> None:
     payload = list_tickets()
 
-    assert len(payload) == 3
+    assert len(payload) == 10
     assert payload[0].id == "ticket-1001"
     assert payload[0].priority == "high"
 

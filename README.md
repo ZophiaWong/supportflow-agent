@@ -217,6 +217,14 @@ Each workflow run gets a unique `thread_id`, so rerunning the same ticket starts
 
 ## Offline evaluation
 
+Generate the dataset profile from the repository root:
+
+```bash
+python3 backend/scripts/profile_eval_dataset.py
+```
+
+This writes `docs/generated/eval-dataset-profile.md`, including KB counts, scenario distribution, expected status distribution, evidence conditions, and governance checks for missing metadata or broken KB references.
+
 Run the offline eval from the backend directory:
 
 ```bash
@@ -224,20 +232,23 @@ cd backend
 uv run --cache-dir /tmp/uv-cache python scripts/run_offline_eval.py
 ```
 
-The command reads `data/evals/supportflow_v1.jsonl`, runs both `plain_rag_baseline` and `graph_v1` on 20 fixed examples, and writes generated artifacts under `data/evals/results/`. The first three examples use the product demo tickets; the expanded eval-only tickets live in `data/evals/supportflow_tickets.json` so the `/tickets` UI stays small.
+The command reads `data/evals/supportflow_v1.jsonl`, runs `plain_rag_baseline`, `rag_policy_baseline`, and `graph_v1` on 39 fixed examples, and writes generated artifacts under `data/evals/results/`. Offline eval defaults to deterministic mode and disables LLM calls even if a local `.env` enables LLM generation. Pass `--enable-llm` only when intentionally evaluating the configured LLM path.
+
+The first three examples use the product demo tickets. The expanded eval-only tickets live in `data/evals/supportflow_tickets.json` so the `/tickets` UI stays scannable.
 
 Expected summary shape:
 
 ```text
-target=plain_rag_baseline examples=20 category_accuracy=null retrieval_hit_rate=1.00 citation_coverage=1.00 citation_support_rate=1.00 review_trigger_accuracy=0.00 final_pass_rate=0.00 bad_cases=40
-target=graph_v1 examples=20 category_accuracy=1.00 retrieval_hit_rate=1.00 citation_coverage=1.00 citation_support_rate=1.00 review_trigger_accuracy=1.00 final_pass_rate=1.00 bad_cases=0
+target=plain_rag_baseline examples=39 category_accuracy=null retrieval_hit_rate=1.00 citation_coverage=1.00 citation_support_rate=1.00 claim_support_rate=0.82 review_trigger_accuracy=0.21 final_pass_rate=0.21 bad_cases=130
+target=rag_policy_baseline examples=39 category_accuracy=1.00 retrieval_hit_rate=1.00 citation_coverage=1.00 citation_support_rate=1.00 claim_support_rate=0.85 review_trigger_accuracy=0.87 final_pass_rate=0.21 bad_cases=108
+target=graph_v1 examples=39 category_accuracy=1.00 retrieval_hit_rate=1.00 citation_coverage=1.00 citation_support_rate=1.00 claim_support_rate=0.85 review_trigger_accuracy=0.79 final_pass_rate=0.67 bad_cases=21
 wrote data/evals/results/latest_summary.json
 wrote data/evals/results/bad_cases.jsonl
 wrote data/evals/results/latest_report.md
 wrote data/evals/results/traces/<run_id>/events.jsonl
 ```
 
-Bad case records include `failure_stage`, using plain workflow stages such as `classification`, `retrieval`, `drafting`, `policy`, `review_routing`, `actions`, and `finalization`. `latest_summary.json` and `latest_report.md` group failures by target and stage.
+This broader dataset intentionally does not produce a perfect `graph_v1` score. The remaining graph bad cases are useful evidence: low-risk reference cases expose the current conservative approval-gated send behavior, and claim-level citation cases expose where a cited answer does not cover every expected claim. Bad case records include `failure_stage`, using plain workflow stages such as `classification`, `retrieval`, `drafting`, `policy`, `review_routing`, `actions`, and `finalization`. `latest_summary.json` and `latest_report.md` group failures by target and stage.
 
 KB retrieval is backed by Markdown front matter under `data/kb/`. Validate the KB metadata from the backend directory:
 

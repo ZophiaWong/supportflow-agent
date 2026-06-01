@@ -92,6 +92,59 @@ def _citation_support_result(
     }
 
 
+def _claim_support_result(example: EvalExample, output: EvalTargetOutput) -> tuple[bool | None, dict[str, object]]:
+    raw_claims = example.metadata.get("claims", [])
+    if not isinstance(raw_claims, list) or not raw_claims:
+        return None, {"claims_evaluated": 0, "claims": []}
+
+    retrieved_doc_ids = set(output.retrieved_doc_ids)
+    cited_doc_ids = set(output.citations)
+    claim_results: list[dict[str, object]] = []
+    unsupported_claims: list[str] = []
+
+    for raw_claim in raw_claims:
+        if not isinstance(raw_claim, dict):
+            unsupported_claims.append("<invalid-claim-metadata>")
+            claim_results.append(
+                {
+                    "claim": "<invalid-claim-metadata>",
+                    "supporting_doc_ids": [],
+                    "retrieved_supporting_doc_ids": [],
+                    "cited_supporting_doc_ids": [],
+                    "supported": False,
+                }
+            )
+            continue
+
+        claim = str(raw_claim.get("claim", ""))
+        supporting_doc_ids = [
+            str(doc_id)
+            for doc_id in raw_claim.get("supporting_doc_ids", [])
+            if isinstance(doc_id, str)
+        ]
+        expected_support = set(supporting_doc_ids)
+        retrieved_support = sorted(expected_support & retrieved_doc_ids)
+        cited_support = sorted(expected_support & cited_doc_ids)
+        supported = bool(retrieved_support) and bool(cited_support)
+        claim_results.append(
+            {
+                "claim": claim,
+                "supporting_doc_ids": supporting_doc_ids,
+                "retrieved_supporting_doc_ids": retrieved_support,
+                "cited_supporting_doc_ids": cited_support,
+                "supported": supported,
+            }
+        )
+        if not supported:
+            unsupported_claims.append(claim or "<empty-claim>")
+
+    return not unsupported_claims, {
+        "claims_evaluated": len(claim_results),
+        "claims": claim_results,
+        "unsupported_claims": unsupported_claims,
+    }
+
+
 def score_example(example: EvalExample, output: EvalTargetOutput) -> EvalExampleResult:
     reference = example.reference_outputs
     metrics: list[EvalMetricResult] = []
@@ -218,6 +271,38 @@ def score_example(example: EvalExample, output: EvalTargetOutput) -> EvalExample
                 },
                 actual=citation_support_actual,
                 notes="Target citations were missing, unknown, or unsupported by retrieved evidence.",
+            )
+        )
+
+    claim_support_passed, claim_support_actual = _claim_support_result(example, output)
+    metrics.append(
+        EvalMetricResult(
+            name="claim_support",
+            passed=claim_support_passed,
+            score=(
+                None
+                if claim_support_passed is None
+                else 1.0 if claim_support_passed else 0.0
+            ),
+            expected={"claims": example.metadata.get("claims", [])},
+            actual=claim_support_actual,
+            notes=(
+                "Reference does not define claim-level support expectations."
+                if claim_support_passed is None
+                else None
+            ),
+        )
+    )
+    if claim_support_passed is False:
+        bad_cases.append(
+            _bad_case(
+                example=example,
+                output=output,
+                failure_type="claim_not_supported_by_citation",
+                failure_stage="drafting",
+                expected={"claims": example.metadata.get("claims", [])},
+                actual=claim_support_actual,
+                notes="At least one expected answer claim was not backed by a cited retrieved document.",
             )
         )
 
@@ -621,6 +706,7 @@ def summarize_results(
         retrieval_hit_rate=_rate(results, "retrieval_hit"),
         citation_coverage=_rate(results, "citation_coverage"),
         citation_support_rate=_rate(results, "citation_support"),
+        claim_support_rate=_optional_rate(results, "claim_support"),
         review_trigger_accuracy=_rate(results, "review_trigger_accuracy"),
         unsupported_claim_absence=_rate(results, "unsupported_claim_absent"),
         expected_status_accuracy=_optional_rate(results, "expected_status"),

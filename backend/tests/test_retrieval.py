@@ -13,6 +13,8 @@ def test_kb_ingestion_validates_front_matter_metadata() -> None:
     assert by_doc_id["refund_policy"].metadata.category == "billing"
     assert by_doc_id["account_unlock"].metadata.source_owner == "identity-support"
     assert by_doc_id["annual_plan_seats"].metadata.freshness == "current"
+    assert by_doc_id["stale_refund_exception_draft"].metadata.freshness == "draft"
+    assert by_doc_id["privacy_payment_data_incident"].metadata.policy_severity == "high"
 
 
 def test_kb_ingestion_fails_on_missing_required_metadata(tmp_path: Path) -> None:
@@ -35,8 +37,12 @@ def test_retrieve_knowledge_returns_expected_supported_documents() -> None:
     examples = [
         ("duplicate charge refund invoice", "billing", "refund_policy"),
         ("administrator locked out password reset", "account", "account_unlock"),
+        ("mfa device lost recovery login", "account", "mfa_recovery"),
         ("temporary seat increase annual onboarding", "product", "annual_plan_seats"),
+        ("enterprise sso setup identity provider metadata", "product", "enterprise_sso_setup"),
         ("export failed csv report error", "bug", "bug_export_issue"),
+        ("outage security incident data loss escalation", "bug", "incident_escalation_runbook"),
+        ("legal payment data loss request", "other", "privacy_payment_data_incident"),
     ]
 
     for query, category, expected_doc_id in examples:
@@ -55,7 +61,7 @@ def test_retrieve_knowledge_returns_no_hits_for_unsupported_queries() -> None:
     unsupported_queries = [
         "shipping address for physical welcome kit",
         "travel visa hotel booking question",
-        "records missing after data loss incident workspace",
+        "predictive churn scoring model for analytics team",
     ]
 
     for query in unsupported_queries:

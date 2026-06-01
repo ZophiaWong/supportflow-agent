@@ -3,7 +3,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
-EvalTargetName = Literal["plain_rag_baseline", "graph_v1"]
+EvalTargetName = Literal["plain_rag_baseline", "rag_policy_baseline", "graph_v1"]
 EvalFailureStage = Literal[
     "classification",
     "retrieval",
@@ -61,6 +61,7 @@ class EvalMetricResult(BaseModel):
         "retrieval_hit",
         "citation_coverage",
         "citation_support",
+        "claim_support",
         "review_trigger_accuracy",
         "unsupported_claim_absent",
         "expected_status",
@@ -108,6 +109,7 @@ class EvalRunSummary(BaseModel):
     retrieval_hit_rate: float
     citation_coverage: float
     citation_support_rate: float
+    claim_support_rate: float | None
     review_trigger_accuracy: float
     unsupported_claim_absence: float
     expected_status_accuracy: float | None

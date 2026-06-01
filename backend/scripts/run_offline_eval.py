@@ -1,10 +1,16 @@
 import argparse
+import sys
 from pathlib import Path
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.evals.runner import run_offline_eval
 from app.evals.schemas import EvalRunSummary
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+TARGET_CHOICES = ["plain_rag_baseline", "rag_policy_baseline", "graph_v1"]
 DEFAULT_DATASET_PATH = REPO_ROOT / "data" / "evals" / "supportflow_v1.jsonl"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "data" / "evals" / "results"
 
@@ -16,18 +22,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--target",
         action="append",
-        choices=["plain_rag_baseline", "graph_v1"],
+        choices=TARGET_CHOICES,
         help="Target to run. May be passed multiple times. Defaults to both targets.",
     )
     parser.add_argument(
         "--threshold-target",
-        choices=["plain_rag_baseline", "graph_v1"],
+        choices=TARGET_CHOICES,
         default="graph_v1",
         help="Target used for threshold checks. Defaults to graph_v1.",
     )
     parser.add_argument("--min-final-pass-rate", type=float)
     parser.add_argument("--min-citation-coverage", type=float)
     parser.add_argument("--min-policy-trigger-accuracy", type=float)
+    parser.add_argument(
+        "--enable-llm",
+        action="store_true",
+        help="Allow eval targets to call the configured LLM. Defaults to deterministic offline mode.",
+    )
     return parser.parse_args()
 
 
@@ -82,7 +93,12 @@ def _threshold_misses(
 
 def main() -> None:
     args = parse_args()
-    summaries = run_offline_eval(args.dataset, args.output_dir, args.target)
+    summaries = run_offline_eval(
+        args.dataset,
+        args.output_dir,
+        args.target,
+        enable_llm=args.enable_llm,
+    )
 
     for summary in summaries:
         category_accuracy = (
@@ -95,6 +111,8 @@ def main() -> None:
             f"retrieval_hit_rate={summary.retrieval_hit_rate:.2f} "
             f"citation_coverage={summary.citation_coverage:.2f} "
             f"citation_support_rate={summary.citation_support_rate:.2f} "
+            f"claim_support_rate="
+            f"{'null' if summary.claim_support_rate is None else f'{summary.claim_support_rate:.2f}'} "
             f"review_trigger_accuracy={summary.review_trigger_accuracy:.2f} "
             f"final_pass_rate={summary.final_pass_rate:.2f} "
             f"bad_cases={summary.bad_case_count}"

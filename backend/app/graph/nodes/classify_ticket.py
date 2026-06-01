@@ -14,13 +14,19 @@ PRIORITY_MAP = {
 def _match_category(text: str) -> tuple[str, str]:
     normalized = text.lower()
 
-    if any(keyword in normalized for keyword in ["refund", "invoice", "charge", "billing"]):
+    if any(keyword in normalized for keyword in ["refund", "invoice", "charge", "billing", "credit"]):
         return "billing", "Ticket mentions billing or duplicate-charge language."
-    if any(keyword in normalized for keyword in ["login", "password", "locked", "unlock", "admin"]):
-        return "account", "Ticket mentions account access or password recovery."
-    if any(keyword in normalized for keyword in ["bug", "error", "failed", "export", "crash"]):
+    if (
+        any(keyword in normalized for keyword in ["retention window", "sso", "trial"])
+        and "crash" not in normalized
+        and "failed" not in normalized
+    ):
+        return "product", "Ticket asks about product plan, SSO, trial, or retention behavior."
+    if any(keyword in normalized for keyword in ["bug", "error", "failed", "export", "crash", "outage"]):
         return "bug", "Ticket describes a product failure or export error."
-    if any(keyword in normalized for keyword in ["plan", "seat", "onboarding", "subscription"]):
+    if any(keyword in normalized for keyword in ["login", "password", "locked", "unlock", "admin", "mfa", "owner"]):
+        return "account", "Ticket mentions account access or password recovery."
+    if any(keyword in normalized for keyword in ["plan", "seat", "onboarding", "subscription", "sso", "trial"]):
         return "product", "Ticket asks about product plan or seat behavior."
     return "other", "Ticket does not match the Day 2 rules for billing, account, bug, or product."
 

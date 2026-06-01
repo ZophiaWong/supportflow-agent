@@ -7,17 +7,20 @@ from app.evals.schemas import EvalExample, EvalTargetOutput
 from app.evals.scoring import score_example
 from app.evals.targets import run_graph_v1, run_plain_rag_baseline
 from app.evals.ticket_fixtures import get_eval_ticket_by_id
+from scripts.profile_eval_dataset import build_profile_markdown
 from scripts.promote_eval_case import candidate_from_trace, write_candidate
 from scripts.run_offline_eval import _threshold_misses
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATASET_PATH = REPO_ROOT / "data" / "evals" / "supportflow_v1.jsonl"
+DEMO_TICKETS_PATH = REPO_ROOT / "data" / "sample_tickets" / "demo_tickets.json"
+EVAL_TICKETS_PATH = REPO_ROOT / "data" / "evals" / "supportflow_tickets.json"
 
 
 def test_load_eval_dataset_reads_expanded_fixed_cases() -> None:
     examples = load_eval_dataset(DATASET_PATH)
 
-    assert len(examples) == 20
+    assert len(examples) == 39
     assert [example.id for example in examples[:3]] == ["E-001", "E-002", "E-003"]
     assert examples[3].inputs.ticket_id == "eval-ticket-2001"
     assert examples[0].reference_outputs.category == "billing"
@@ -27,11 +30,35 @@ def test_load_eval_dataset_reads_expanded_fixed_cases() -> None:
     assert examples[2].reference_outputs.expected_policy_ids == [
         "high_impact_action_requires_review"
     ]
+    assert examples[4].reference_outputs.should_trigger_review is False
+    assert examples[4].reference_outputs.expected_status == "done"
     assert examples[15].reference_outputs.must_not_claim == [
         "refund today",
         "ignore previous rules",
         "guaranteed",
     ]
+    assert examples[23].reference_outputs.expected_action_types == [
+        "send_customer_reply",
+        "apply_credit",
+    ]
+    assert examples[38].metadata["evidence_condition"] == "partial_evidence"
+
+
+def test_profile_eval_dataset_reports_distribution_and_no_governance_issues() -> None:
+    markdown, issues = build_profile_markdown(
+        dataset_path=DATASET_PATH,
+        demo_tickets_path=DEMO_TICKETS_PATH,
+        eval_tickets_path=EVAL_TICKETS_PATH,
+    )
+
+    assert issues == []
+    assert "- KB documents: 15" in markdown
+    assert "- Demo tickets: 10" in markdown
+    assert "- Eval-only tickets: 36" in markdown
+    assert "- Eval examples: 39" in markdown
+    assert "| safe_auto_finalize_reference | 8 |" in markdown
+    assert "| done | 8 |" in markdown
+    assert "No metadata, ticket-reference, KB-reference, or claim-support reference issues detected." in markdown
 
 
 def test_eval_ticket_resolver_loads_eval_tickets_and_demo_fallback() -> None:
@@ -55,14 +82,15 @@ def test_baseline_scores_review_trigger_failures_without_category_accuracy() -> 
     assert metrics_by_name["citation_support"].passed is True
     assert metrics_by_name["review_trigger_accuracy"].passed is False
     assert result.final_pass is False
-    assert [case.failure_type for case in result.bad_cases] == [
-        "wrong_review_trigger",
-        "wrong_status",
-    ]
-    assert [case.failure_stage for case in result.bad_cases] == [
-        "review_routing",
-        "finalization",
-    ]
+    assert {
+        (case.failure_type, case.failure_stage)
+        for case in result.bad_cases
+    } >= {
+        ("wrong_review_trigger", "review_routing"),
+        ("wrong_status", "finalization"),
+        ("missing_expected_action_type", "actions"),
+        ("wrong_action_status", "actions"),
+    }
 
 
 def test_graph_target_can_load_eval_only_ticket() -> None:
@@ -80,8 +108,20 @@ def test_graph_target_can_load_eval_only_ticket() -> None:
 
 def test_graph_target_returns_no_evidence_for_unsupported_tickets() -> None:
     examples = load_eval_dataset(DATASET_PATH)
-    unsupported_examples = [examples[index] for index in (11, 12, 14)]
+    unsupported_examples = [
+        example
+        for example in examples
+        if example.metadata["evidence_condition"] == "no_evidence"
+    ]
 
+    assert {example.id for example in unsupported_examples} == {
+        "E-012",
+        "E-013",
+        "E-022",
+        "E-031",
+        "E-035",
+        "E-038",
+    }
     for example in unsupported_examples:
         output = run_graph_v1(example)
 
@@ -226,16 +266,25 @@ def test_offline_eval_writes_summary_bad_cases_and_traces(tmp_path: Path, monkey
 
     summaries = run_offline_eval(DATASET_PATH, tmp_path)
 
-    assert [summary.target for summary in summaries] == ["plain_rag_baseline", "graph_v1"]
+    assert [summary.target for summary in summaries] == [
+        "plain_rag_baseline",
+        "rag_policy_baseline",
+        "graph_v1",
+    ]
     baseline_summary = summaries[0]
-    graph_summary = summaries[1]
+    policy_baseline_summary = summaries[1]
+    graph_summary = summaries[2]
     assert baseline_summary.category_accuracy is None
+    assert policy_baseline_summary.category_accuracy == 1.0
     assert baseline_summary.review_trigger_accuracy < graph_summary.review_trigger_accuracy
-    assert graph_summary.review_trigger_accuracy >= 0.9
+    assert graph_summary.review_trigger_accuracy >= 0.75
     assert graph_summary.final_pass_rate > baseline_summary.final_pass_rate
+    assert graph_summary.final_pass_rate < 1.0
     assert graph_summary.expected_risk_flag_accuracy is not None
     assert graph_summary.expected_policy_accuracy is not None
     assert graph_summary.citation_support_rate == 1.0
+    assert graph_summary.claim_support_rate is not None
+    assert graph_summary.claim_support_rate < 1.0
 
     summary_path = tmp_path / "latest_summary.json"
     bad_cases_path = tmp_path / "bad_cases.jsonl"
@@ -249,15 +298,18 @@ def test_offline_eval_writes_summary_bad_cases_and_traces(tmp_path: Path, monkey
 
     summary_payload = json.loads(summary_path.read_text())
     assert summary_payload["run_id"] == graph_summary.run_id
-    assert summary_payload["num_examples"] == 20
+    assert summary_payload["num_examples"] == 39
     assert summary_payload["targets"][0]["category_accuracy"] is None
-    assert summary_payload["targets"][1]["citation_support_rate"] == 1.0
+    assert summary_payload["targets"][1]["target"] == "rag_policy_baseline"
+    assert summary_payload["targets"][2]["citation_support_rate"] == 1.0
     assert "bad_case_breakdown" in summary_payload
-    assert summary_payload["bad_case_breakdown_by_stage"]["plain_rag_baseline"] == {
-        "finalization": 20,
-        "review_routing": 20,
+    assert summary_payload["bad_case_breakdown_by_stage"]["graph_v1"] == {
+        "drafting": 5,
+        "finalization": 8,
+        "review_routing": 8,
     }
     assert "plain_rag_baseline: finalization" in report_path.read_text()
+    assert "## Metric Rates" in report_path.read_text()
 
     bad_cases = [
         json.loads(line)
@@ -267,13 +319,17 @@ def test_offline_eval_writes_summary_bad_cases_and_traces(tmp_path: Path, monkey
     assert "wrong_review_trigger" in {case["failure_type"] for case in bad_cases}
     assert "review_routing" in {case["failure_stage"] for case in bad_cases}
     assert "plain_rag_baseline" in {case["target"] for case in bad_cases}
+    assert "rag_policy_baseline" in {case["target"] for case in bad_cases}
+    assert "claim_not_supported_by_citation" in {
+        case["failure_type"] for case in bad_cases if case["target"] == "graph_v1"
+    }
     assert not [
         case
         for case in bad_cases
         if case["target"] == "graph_v1" and case["failure_type"] == "unexpected_retrieval"
     ]
-    assert graph_summary.final_pass_rate == 1.0
-    assert graph_summary.bad_case_count == 0
+    assert graph_summary.final_pass_rate == 0.6667
+    assert graph_summary.bad_case_count == 21
 
     trace_events = [
         json.loads(line)
@@ -282,6 +338,7 @@ def test_offline_eval_writes_summary_bad_cases_and_traces(tmp_path: Path, monkey
     ]
     assert {event["target"] for event in trace_events} == {
         "plain_rag_baseline",
+        "rag_policy_baseline",
         "graph_v1",
     }
     assert all(event["langsmith_enabled"] is False for event in trace_events)
@@ -289,9 +346,9 @@ def test_offline_eval_writes_summary_bad_cases_and_traces(tmp_path: Path, monkey
     assert _threshold_misses(
         summaries,
         threshold_target="graph_v1",
-        min_final_pass_rate=1.0,
+        min_final_pass_rate=0.6,
         min_citation_coverage=1.0,
-        min_policy_trigger_accuracy=1.0,
+        min_policy_trigger_accuracy=0.9,
     ) == []
     assert _threshold_misses(
         summaries,
@@ -299,7 +356,7 @@ def test_offline_eval_writes_summary_bad_cases_and_traces(tmp_path: Path, monkey
         min_final_pass_rate=1.1,
         min_citation_coverage=None,
         min_policy_trigger_accuracy=None,
-    ) == ["graph_v1.final_pass_rate=1.00 missed threshold 1.10"]
+    ) == ["graph_v1.final_pass_rate=0.67 missed threshold 1.10"]
 
 
 def test_promote_eval_case_writes_candidate_from_trace(tmp_path: Path) -> None:
